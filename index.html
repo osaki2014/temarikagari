@@ -434,7 +434,7 @@
         </select>
       </div>
       <details id="threadPaletteDetails">
-        <summary>かがり糸を個別指定</summary>
+        <summary>かがり糸を個別指定（色・線種・太さ・素材）</summary>
         <div id="threadPaletteGrid"></div>
       </details>
       <div id="commonRenderRow" class="row common-thread-setting">
@@ -457,7 +457,7 @@
         <input id="threadWidthRange" type="range" min="0.4" max="3.0" step="0.1" value="1.0">
         <span id="threadWidthValue" class="width-value">1.0×</span>
       </div>
-      <div id="commonDisabledNotice">個別設定中です。上の「基本色」「共通の線種」「共通の糸の太さ」は使用されません。各糸の設定を変更してください。</div>
+      <div id="commonDisabledNotice">個別設定中です。共通の基本色・線種・太さ・リアリスティック素材は無効です。各糸に、共通設定と同じ4種類の線種と太さ・素材を個別指定してください。</div>
       <div id="textureRow" class="row" hidden>
         <input id="yarnTextureInput" type="file" accept="image/*">
         <button id="texturePickBtn" type="button">糸表面画像を選ぶ</button>
@@ -945,7 +945,21 @@
   function resize(){const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(canvas.clientWidth*dpr);canvas.height=Math.round(canvas.clientHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
   window.addEventListener('resize',resize);resize();
 
-  function polySegments(points,color,width=2,alphaFront=1,alphaBack=.15,dash=null,kind='thread'){const segs=[];const denom=Math.max(1,points.length-1);for(let i=0;i<points.length-1;i++){const p0=points[i],p1=points[i+1],a=proj(p0),b=proj(p1),z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2;segs.push({a,b,p0,p1,z,r,color,width,alpha:z>=0?alphaFront:alphaBack,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:i===0,isLast:i===points.length-2})}return segs}
+  let polyPathSerial=0;
+  function polySegments(points,color,width=2,alphaFront=1,alphaBack=.15,dash=null,kind='thread'){
+    const segs=[],denom=Math.max(1,points.length-1),pathId=++polyPathSerial;
+    let arcCum=0;const arcStarts=[0];
+    for(let i=0;i<points.length-1;i++){
+      const u=norm(points[i]),v=norm(points[i+1]);
+      arcCum+=Math.acos(clamp(dot(u,v),-1,1));arcStarts.push(arcCum);
+    }
+    const totalArc=Math.max(1e-6,arcCum);
+    for(let i=0;i<points.length-1;i++){
+      const p0=points[i],p1=points[i+1],a=proj(p0),b=proj(p1),z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2;
+      segs.push({a,b,p0,p1,z,r,color,width,alpha:z>=0?alphaFront:alphaBack,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:i===0,isLast:i===points.length-2,pathId,arc0:arcStarts[i],arc1:arcStarts[i+1],totalArc});
+    }
+    return segs
+  }
 
   const neonPalette=['#00f5ff','#ff2bd6','#b8ff00','#ffd400','#7a5cff','#00ff9d','#ff4b3e'];
   const botanicalPalette=['#6f8792','#a86f72','#b79a63','#7f9276','#8f7d91','#9a795f','#657d73','#b08072'];
@@ -1013,8 +1027,8 @@
   }
   const realisticPresets={
     hair:{name:'髪の毛',en:'Hair filament',family:'fiber',plies:1,strands:1,twist:0.15,hairiness:.22,roughness:.28,alpha:.98,metallic:0,transmission:0,irregularity:.18,highlight:.72,notes:'単一の細いstrand＋異方的ハイライト。少量のflyawayを加える。',sources:[['Stable Cosserat Rods (SIGGRAPH 2025)','https://jerryhsu.io/projects/StableCosseratRods/'],['WaveOpticsFiber (SIGGRAPH Asia 2020)','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber GitHub','https://github.com/mandyxmq/WaveOpticsFiber']]},
-    cotton:{name:'木綿糸',en:'Cotton spun yarn',family:'yarn',plies:3,strands:1,twist:6.2,hairiness:.72,roughness:.62,alpha:1,metallic:0,transmission:0,irregularity:.26,highlight:.24,notes:'3本のplyを撚り、短い毛羽とloop hairinessを重ねる。径に小さな不均一性を与える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Real-Time Knit Deformation and Rendering (SIGGRAPH 2025)','https://kuiwuchn.github.io/rtstitch'],['MADYPG GitHub (SIGGRAPH 2021)','https://github.com/kamleshbhalui/MADYPG']]},
-    linen:{name:'麻糸',en:'Linen yarn',family:'yarn',plies:2,strands:1,twist:4.4,hairiness:.38,roughness:.72,alpha:1,metallic:0,transmission:0,irregularity:.42,highlight:.18,notes:'2本plyを基調に、木綿より少ないが長い毛羽、強い径ムラと節状の不均一性を加える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Parametric 3D simulations of spun yarns and fabrics (2023)','https://www.tandfonline.com/doi/full/10.1080/00405000.2023.2230326']]},
+    cotton:{name:'木綿糸',en:'Cotton spun yarn',family:'yarn',plies:3,strands:1,twist:6.2,hairiness:.72,roughness:.62,alpha:1,metallic:0,transmission:0,irregularity:.26,highlight:.24,notes:'3本のplyを撚り、短い毛羽とloop hairinessを重ねる。径に小さな不均一性を与える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Real-Time Knit Deformation and Rendering (SIGGRAPH 2025)','https://kuiwuchn.github.io/rtstitch'],['MADYPG GitHub (SIGGRAPH 2021)','https://github.com/kamleshbhalui/MADYPG'],['Fiber-scale staple yarn models (2026)','https://journals.sagepub.com/doi/10.1177/00405175241307861']]},
+    linen:{name:'麻糸',en:'Linen yarn',family:'yarn',plies:2,strands:1,twist:4.4,hairiness:.38,roughness:.72,alpha:1,metallic:0,transmission:0,irregularity:.42,highlight:.18,notes:'2本plyを基調に、木綿より少ないが長い毛羽、強い径ムラと節状の不均一性を加える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Parametric 3D simulations of spun yarns and fabrics (2023)','https://www.tandfonline.com/doi/full/10.1080/00405000.2023.2230326'],['Fiber-scale staple yarn models (2026)','https://journals.sagepub.com/doi/10.1177/00405175241307861']]},
     yarn:{name:'一般撚り糸',en:'Generic plied yarn',family:'yarn',plies:2,strands:1,twist:5.4,hairiness:.42,roughness:.48,alpha:1,metallic:0,transmission:0,irregularity:.16,highlight:.30,notes:'fiber→ply→yarnの階層を簡略化した標準撚り糸。2本plyと中程度の毛羽。',sources:[['Real-Time Knit Deformation and Rendering (SIGGRAPH 2025)','https://kuiwuchn.github.io/rtstitch'],['Mechanics-Aware Deformation of Yarn Pattern Geometry','https://github.com/kamleshbhalui/MADYPG']]},
     cord:{name:'紐',en:'Cord',family:'bundle',plies:3,strands:1,twist:3.4,hairiness:.16,roughness:.42,alpha:1,metallic:0,transmission:0,irregularity:.10,highlight:.34,notes:'3本の太いplyを明瞭な螺旋として表示。毛羽は少なく、撚り溝を強調。',sources:[['Stable Cosserat Rods (SIGGRAPH 2025)','https://jerryhsu.io/projects/StableCosseratRods/'],['Real-Time Knit Deformation and Rendering','https://kuiwuchn.github.io/rtstitch']]},
     rope:{name:'縄',en:'Rope',family:'rope',plies:3,strands:3,twist:2.6,hairiness:.18,roughness:.56,alpha:1,metallic:0,transmission:0,irregularity:.12,highlight:.22,notes:'3 strandを大きな螺旋にし、各strand内部にも小さな撚りを加える二階層rope。',sources:[['Stable Cosserat Rods / YarnBall','https://github.com/jerry060599/YarnBall'],['Realistic fabric rendering with yarn models','https://journals.sagepub.com/doi/10.1177/00405175231154534']]},
@@ -1040,7 +1054,7 @@
       const p=realisticPresets[material]||realisticPresets.cotton;
       const eq=p.family==='yarn'||p.family==='bundle'||p.family==='rope'?'<code>c_j(s)=c(s)+R[cos(ωs+φ_j)n(s)+sin(ωs+φ_j)b(s)]</code>':'<code>E≈½EAε²+½EIκ²+½GJτ²</code>';
       materialHelpTitle.textContent=`${p.name} / ${p.en}`;
-      materialHelpBody.innerHTML=`<p>${p.notes}</p><div class="research-note">このHTMLでは ${eq} の考え方を、中心線に対する複数strandのスクリーン空間オフセット、twist位相、hairiness、roughness/transmission近似へ落としています。</div><div class="material-mini-grid"><div>plies / strands<br><strong>${p.plies} / ${p.strands}</strong></div><div>twist<br><strong>${p.twist}</strong></div><div>hairiness<br><strong>${p.hairiness}</strong></div><div>roughness<br><strong>${p.roughness}</strong></div></div><h3>references / code</h3>${p.sources.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}`;
+      materialHelpBody.innerHTML=`<p>${p.notes}</p><div class="research-note">このHTMLでは ${eq} の考え方を、球面上の中心線に沿う累積距離 s と局所3D断面フレームを使い、fiber → ply → yarn/strand の階層幾何として生成しています。ply中心の撚り、fiberの逆撚り、径方向migration、hairinessを軽量化して実装しています。物理変形はフルCosserat solverではなく、形状生成部分をリアルタイム表示向けに近似しています。</div><div class="material-mini-grid"><div>plies / strands<br><strong>${p.plies} / ${p.strands}</strong></div><div>twist<br><strong>${p.twist}</strong></div><div>hairiness<br><strong>${p.hairiness}</strong></div><div>roughness<br><strong>${p.roughness}</strong></div></div><h3>references / code</h3>${p.sources.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}`;
     }
     if(typeof materialHelpDialog.showModal==='function')materialHelpDialog.showModal();else materialHelpDialog.setAttribute('open','');
   }
@@ -1077,13 +1091,15 @@
       item.addEventListener('click',e=>{if(e.target===a)return;choose()});item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}});item.append(chip,label,a);dyePaletteGrid.appendChild(item);
     }
   }
+  const THREAD_RENDER_OPTIONS=[['flat','細線'],['round','丸断面 3D糸'],['texture','繊維テクスチャ'],['realistic','リアリスティック3D']];
+  function fillThreadRenderSelect(sel,value){sel.innerHTML='';for(const [v,n] of THREAD_RENDER_OPTIONS){const o=document.createElement('option');o.value=v;o.textContent=n;sel.appendChild(o)}sel.value=THREAD_RENDER_OPTIONS.some(([v])=>v===value)?value:'flat';}
   function renderThreadPalette(){
     const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),widths=ensureCustomThreadWidths(state.key),materials=ensureCustomThreadMaterials(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
     items.forEach((item,i)=>{
       const row=document.createElement('div');row.className='thread-palette-item';
       const idx=document.createElement('span');idx.className='thread-palette-index';idx.textContent=`糸色 ${i+1}`;
       const input=document.createElement('input');input.type='color';input.value=map[item.key]||item.color;input.setAttribute('aria-label',`糸色 ${i+1}`);
-      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ'],['realistic','リアリスティック3D']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||state.threadRender;
+      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);fillThreadRenderSelect(renderSel,renders[item.key]||state.threadRender);
       const renderBox=document.createElement('span');renderBox.className='thread-render-box';const renderHelp=document.createElement('button');renderHelp.type='button';renderHelp.className='line-help-btn';renderHelp.textContent='?';renderHelp.title='この線種の手法と参考論文';renderBox.append(renderSel,renderHelp);
       const widthBox=document.createElement('span');widthBox.className='thread-width-box';
       const widthInput=document.createElement('input');widthInput.type='range';widthInput.min='0.4';widthInput.max='3.0';widthInput.step='0.1';widthInput.value=String(widths[item.key]??state.threadWidth);widthInput.setAttribute('aria-label',`糸色 ${i+1} の太さ`);
@@ -1141,31 +1157,81 @@
   function tintRgb(color,amount){const m=/^#([0-9a-f]{6})$/i.exec(color);if(!m)return color;const n=parseInt(m[1],16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;const target=amount>=0?255:0,t=Math.abs(amount);return `rgb(${Math.round(r+(target-r)*t)},${Math.round(g+(target-g)*t)},${Math.round(b+(target-b)*t)})`}
   function drawFlyaway(s,color,w,alpha,preset){if(preset.hairiness<=0)return;const h=stringHash(`${s.segIndex}:${s.color}:${state.key}`),freq=preset.family==='yarn'?5:3,count=Math.max(0,Math.round(preset.hairiness*2.4));for(let j=0;j<count;j++){if(((h+j*31)%freq)>1)continue;const n=screenNormal(s),side=((h>>j)&1)?1:-1,amp=(2.4+((h>>4)%7)*.35)*preset.hairiness*w*.34,phase=((h%628)/100)+j;const offA=Math.sin((s.u||0)*18+phase)*amp*.25,offB=side*amp+Math.cos((s.u||0)*21+phase)*amp*.3;const fs=offsetSegment(s,offA,offB);strokeOne(fs,tintRgb(color,.12),Math.max(.35,w*.12),alpha*(.18+.28*preset.hairiness));}}
   function realisticDetail(p){
-    if(p.family==='yarn')return{fibers:p.name==='木綿糸'?5:(p.name==='麻糸'?4:5),turnPerSeg:p.name==='木綿糸'?.145:(p.name==='麻糸'?.115:.155),microTurn:.31};
-    if(p.family==='bundle')return{fibers:3,turnPerSeg:.105,microTurn:.24};
-    if(p.family==='rope')return{fibers:p.name==='綱'?3:3,turnPerSeg:p.name==='綱'?.060:.078,microTurn:.19};
-    return{fibers:1,turnPerSeg:0,microTurn:0};
+    // Geometry parameters are deliberately expressed in path-length units,
+    // not tessellation-segment counts.  This prevents the twist pitch from
+    // changing when the centreline is sampled more or less densely.
+    if(p.family==='yarn'){
+      if(p.name==='木綿糸')return{outerTurns:12.0,innerTurns:-25.0,fibersPerPly:3,migration:.28,bundleRadius:1.00,plyRadius:.34,subdiv:3,loopHair:.58,shortHair:.78};
+      if(p.name==='麻糸')return{outerTurns:8.4,innerTurns:-17.0,fibersPerPly:3,migration:.40,bundleRadius:1.02,plyRadius:.30,subdiv:3,loopHair:.18,shortHair:.36};
+      return{outerTurns:10.0,innerTurns:-21.0,fibersPerPly:3,migration:.20,bundleRadius:.98,plyRadius:.33,subdiv:3,loopHair:.24,shortHair:.40};
+    }
+    if(p.family==='bundle')return{outerTurns:6.8,innerTurns:-14.0,fibersPerPly:3,migration:.12,bundleRadius:1.08,plyRadius:.31,subdiv:3,loopHair:.08,shortHair:.14};
+    if(p.family==='rope'){
+      const heavy=p.name==='綱';
+      return{outerTurns:heavy?3.8:4.8,midTurns:heavy?-8.2:-10.2,innerTurns:heavy?15.0:18.0,fibersPerPly:2,migration:.08,bundleRadius:heavy?1.32:1.18,strandRadius:.43,plyRadius:.17,subdiv:3,loopHair:.04,shortHair:.08};
+    }
+    return{outerTurns:0,innerTurns:0,fibersPerPly:1,migration:0,bundleRadius:1,plyRadius:0,subdiv:2,loopHair:0,shortHair:0};
   }
-  function segmentBasis3D(p0,p1){
-    const t=norm(sub(p1,p0)),r0=norm(p0),r1=norm(p1);let b0=norm(cross(t,r0)),b1=norm(cross(t,r1));
-    if(len(b0)<1e-5)b0=tangentBasis(r0).u;if(len(b1)<1e-5)b1=tangentBasis(r1).u;
-    return{t,r0,r1,b0,b1};
+  function frameAtPoint(base,tangent){
+    const t=norm(tangent);let e1=sub(norm(base),scale(t,dot(norm(base),t)));
+    if(len(e1)<1e-6){const b=tangentBasis(base);e1=b.n}
+    e1=norm(e1);let e2=norm(cross(t,e1));if(len(e2)<1e-6)e2=tangentBasis(base).u;
+    return{t,e1,e2};
   }
-  function helixProjectedSegment(s,rad0,side0,rad1,side1){
-    if(!s.p0||!s.p1)return offsetSegment(s,side0*6,side1*6);
-    const B=segmentBasis3D(s.p0,s.p1),baseWorld=.00135*Math.max(1,wCurrentRealistic||1);
-    const lift=baseWorld*1.15;
-    const q0=add(add(scale(norm(s.p0),len(s.p0)+lift+rad0*baseWorld),scale(B.b0,side0*baseWorld)),V(0,0,0));
-    const q1=add(add(scale(norm(s.p1),len(s.p1)+lift+rad1*baseWorld),scale(B.b1,side1*baseWorld)),V(0,0,0));
-    const a=proj(q0),b=proj(q1);return{...s,a,b,p0:q0,p1:q1,z:(a.z+b.z)/2,r:(len(q0)+len(q1))/2};
+  function pointOnBaseSegment(s,u){
+    // Spherical interpolation keeps fibres tied to the same curved yarn centreline.
+    const r0=len(s.p0),r1=len(s.p1),r=r0+(r1-r0)*u;
+    return slerpPoint(s.p0,s.p1,u,r);
   }
-  let wCurrentRealistic=1;
+  function tangentOnBaseSegment(s,u){
+    const eps=.012,a=pointOnBaseSegment(s,clamp(u-eps,0,1)),b=pointOnBaseSegment(s,clamp(u+eps,0,1));
+    return norm(sub(b,a));
+  }
+  function offset3D(base,tangent,x,y,lift=0){
+    const F=frameAtPoint(base,tangent),outward=F.e1;
+    return add(add(add(base,scale(F.e1,x)),scale(F.e2,y)),scale(outward,lift));
+  }
+  function projectedMiniSeg(p0,p1,s,first=false,last=false){
+    const a=proj(p0),b=proj(p1);return{...s,a,b,p0,p1,z:(a.z+b.z)/2,r:(len(p0)+len(p1))/2,isFirst:first,isLast:last};
+  }
+  function shadeByCrossSection(color,phase,rough=.5){
+    // phase near camera-facing side gets brighter; opposite side darker.
+    const light=.18*Math.cos(phase)-.06*rough;
+    return tintRgb(color,clamp(light,-.22,.25));
+  }
+  function drawFiberMiniPath(s,pointFn,color,width,alpha,subdiv,depthKeyFn=null){
+    const parts=[];
+    for(let m=0;m<subdiv;m++){
+      const u0=m/subdiv,u1=(m+1)/subdiv,p0=pointFn(u0),p1=pointFn(u1),seg=projectedMiniSeg(p0,p1,s,s.isFirst&&m===0,s.isLast&&m===subdiv-1);
+      parts.push({seg,depth:depthKeyFn?depthKeyFn((u0+u1)/2):(seg.z||0)});
+    }
+    return parts.map(x=>({...x,color,width,alpha}));
+  }
+  function addProceduralHairiness(s,c,w,a,p,D,parts){
+    const seed=stringHash(`${state.key}|${s.pathId}|${s.segIndex}|${c}`);
+    const baseChance=clamp((D.shortHair||0)*.36,0,.42);
+    if(((seed%1000)/1000)<baseChance){
+      const u=.25+((seed>>5)%50)/100,base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),F=frameAtPoint(base,t),side=((seed>>12)&1)?1:-1;
+      const lenHair=.010*w*(.55+((seed>>15)%70)/100)*(p.name==='木綿糸'?1.4:1);
+      const p1=add(base,add(scale(F.e2,side*lenHair),scale(F.e1,lenHair*.7)));
+      const seg=projectedMiniSeg(base,p1,s,false,false);parts.push({seg,color:tintRgb(c,.15),width:Math.max(.28,w*.045),alpha:a*.52,depth:seg.z+.5});
+    }
+    const loopChance=clamp((D.loopHair||0)*.13,0,.18);
+    if(((seed>>3)%1000)/1000<loopChance){
+      const us=[.15,.38,.62,.85],loop=[];
+      for(let i=0;i<us.length;i++){
+        const u=us[i],base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),F=frameAtPoint(base,t),amp=.0085*w*D.loopHair*Math.sin(Math.PI*(i/(us.length-1)));
+        loop.push(add(base,add(scale(F.e2,amp),scale(F.e1,amp*.9))));
+      }
+      for(let i=0;i<loop.length-1;i++){const seg=projectedMiniSeg(loop[i],loop[i+1],s,false,false);parts.push({seg,color:tintRgb(c,.10),width:Math.max(.25,w*.04),alpha:a*.38,depth:seg.z+.4});}
+    }
+  }
   function drawRealisticThread(s,c,w,a,material){
-    const p=realisticPresets[material]||realisticPresets.cotton;wCurrentRealistic=w;
+    const p=realisticPresets[material]||realisticPresets.cotton;
     if(p.family==='metal'){
       strokeOne(s,tintRgb(c,-.56),w+2.0,a*.58);strokeOne(s,p.name==='ピアノ線'?tintRgb(c,.34):tintRgb(c,-.16),w+1.05,a*.96);
-      const hs=offsetSegment(s,-w*.16,-w*.16);strokeOne(hs,'rgba(255,255,255,.96)',Math.max(.45,w*(.18+.12*p.highlight)),a*(.38+.48*p.highlight));
-      const shade=offsetSegment(s,w*.28,w*.28);strokeOne(shade,'rgba(0,0,0,.42)',Math.max(.35,w*.16),a*(.18+.28*p.roughness));return;
+      strokeOne(offsetSegment(s,-w*.16),'rgba(255,255,255,.96)',Math.max(.45,w*(.18+.12*p.highlight)),a*(.38+.48*p.highlight));
+      strokeOne(offsetSegment(s,w*.28),'rgba(0,0,0,.42)',Math.max(.35,w*.16),a*(.18+.28*p.roughness));return;
     }
     if(p.family==='dielectric'){
       strokeOne(s,'rgba(35,55,65,.24)',w+1.2,a*.25);strokeOne(s,c,Math.max(.7,w*.42),a*.28);
@@ -1174,35 +1240,72 @@
     if(p.family==='fiber'){
       strokeOne(s,tintRgb(c,-.35),Math.max(.65,w*.72),a*.55);strokeOne(offsetSegment(s,-w*.09),c,Math.max(.5,w*.52),a*.95);strokeOne(offsetSegment(s,-w*.18),'rgba(255,255,255,.82)',Math.max(.28,w*.11),a*.55);drawFlyaway(s,c,w,a,p);return;
     }
-    const D=realisticDetail(p),outerCount=p.family==='rope'?p.strands:p.plies,outerRadius=p.family==='rope'?1.7:1.25;
-    // Only a faint silhouette; the visible body is made of the individual fibres below.
-    strokeOne(s,tintRgb(c,-.48),w+1.4,a*.11);
-    const fibreSegments=[];
-    for(let j=0;j<outerCount;j++){
-      const phase0=2*Math.PI*(D.turnPerSeg*(s.segIndex||0))+j*2*Math.PI/outerCount;
-      const phase1=2*Math.PI*(D.turnPerSeg*((s.segIndex||0)+1))+j*2*Math.PI/outerCount;
-      const depth=(Math.cos(phase0)+Math.cos(phase1))*.5;
-      // Rope/cord gets a subtle strand core, but it remains narrow enough that fine fibres stay visible.
-      const core0r=Math.cos(phase0)*outerRadius,core0s=Math.sin(phase0)*outerRadius,core1r=Math.cos(phase1)*outerRadius,core1s=Math.sin(phase1)*outerRadius;
-      if(p.family==='rope'||p.family==='bundle'){
-        const coreSeg=helixProjectedSegment(s,core0r,core0s,core1r,core1s);fibreSegments.push({seg:coreSeg,width:Math.max(.45,w*(p.family==='rope'?.16:.14)),color:tintRgb(c,depth*.13),alpha:a*.42,depth:depth-.2});
+
+    const D=realisticDetail(p),worldScale=.0027*Math.max(.65,w),bundleR=worldScale*D.bundleRadius;
+    const arcAt=u=>s.arc0+(s.arc1-s.arc0)*u;
+    const parts=[];
+    // A very faint body underneath closes tiny raster gaps but does not hide the ply geometry.
+    strokeOne(s,tintRgb(c,-.45),Math.max(.7,w*.72),a*.11);
+
+    if(p.family==='yarn'||p.family==='bundle'){
+      const plyCount=Math.max(2,p.plies||2),plyR=bundleR*.44,localR=bundleR*D.plyRadius;
+      for(let j=0;j<plyCount;j++){
+        const basePhase=j*2*Math.PI/plyCount;
+        // Draw each ply core so the large-scale Z/S twist remains readable from normal zoom.
+        const plyPoint=u=>{
+          const base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),ss=arcAt(u),ph=2*Math.PI*D.outerTurns*ss+basePhase;
+          return offset3D(base,t,Math.cos(ph)*plyR,Math.sin(ph)*plyR,bundleR*.64);
+        };
+        const coreParts=drawFiberMiniPath(s,plyPoint,shadeByCrossSection(c,basePhase,p.roughness),Math.max(.42,w*.18),a*.72,D.subdiv,u=>Math.sin(2*Math.PI*D.outerTurns*arcAt(u)+basePhase));
+        parts.push(...coreParts);
+        for(let k=0;k<D.fibersPerPly;k++){
+          const fiberPhase=k*2*Math.PI/D.fibersPerPly;
+          const fiberPoint=u=>{
+            const base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),ss=arcAt(u),outer=2*Math.PI*D.outerTurns*ss+basePhase;
+            const migrate=1+D.migration*Math.sin(2*Math.PI*(2.15*ss)+fiberPhase+basePhase*.37);
+            const inner=2*Math.PI*D.innerTurns*ss+fiberPhase;
+            const cx=Math.cos(outer)*plyR,cy=Math.sin(outer)*plyR;
+            // inner fibre rotates around the moving ply centre; opposite sign gives visible interlocking twist.
+            const ix=Math.cos(inner)*localR*migrate,iy=Math.sin(inner)*localR*migrate;
+            return offset3D(base,t,cx+ix,cy+iy,bundleR*.66);
+          };
+          const phMid=2*Math.PI*D.outerTurns*((s.arc0+s.arc1)/2)+basePhase;
+          parts.push(...drawFiberMiniPath(s,fiberPoint,shadeByCrossSection(c,phMid+k*.28,p.roughness),Math.max(.27,w*.055),a*.86,D.subdiv,u=>Math.sin(2*Math.PI*D.outerTurns*arcAt(u)+basePhase)+.18*Math.sin(2*Math.PI*D.innerTurns*arcAt(u)+fiberPhase)));
+        }
       }
-      for(let k=0;k<D.fibers;k++){
-        const micro0=-2.25*phase0+2*Math.PI*k/D.fibers+2*Math.PI*D.microTurn*(s.segIndex||0);
-        const micro1=-2.25*phase1+2*Math.PI*k/D.fibers+2*Math.PI*D.microTurn*((s.segIndex||0)+1);
-        const microR=p.family==='rope'?.42:(p.family==='bundle'?.36:.32);
-        const r0=core0r+Math.cos(micro0)*microR,s0=core0s+Math.sin(micro0)*microR;
-        const r1=core1r+Math.cos(micro1)*microR,s1=core1s+Math.sin(micro1)*microR;
-        const fs=helixProjectedSegment(s,r0,s0,r1,s1),fd=(Math.cos(phase0)+Math.cos(phase1)+.45*Math.cos(micro0)+.45*Math.cos(micro1))/2.9;
-        const shade=clamp(fd*.18,-.16,.22);fibreSegments.push({seg:fs,width:Math.max(.34,Math.min(1.15,w*(p.family==='rope'?.055:.065))),color:tintRgb(c,shade),alpha:a*(.72+.2*Math.max(0,fd)),depth:fd});
+    }else if(p.family==='rope'){
+      const strandCount=Math.max(3,p.strands||3),strandR=bundleR*.54,midR=bundleR*D.strandRadius,plyCount=Math.max(2,Math.min(3,p.plies||3)),fiberR=bundleR*D.plyRadius;
+      for(let j=0;j<strandCount;j++){
+        const sp0=j*2*Math.PI/strandCount;
+        const strandPoint=u=>{
+          const base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),ss=arcAt(u),sp=2*Math.PI*D.outerTurns*ss+sp0;
+          return offset3D(base,t,Math.cos(sp)*strandR,Math.sin(sp)*strandR,bundleR*.70);
+        };
+        parts.push(...drawFiberMiniPath(s,strandPoint,shadeByCrossSection(c,sp0,p.roughness),Math.max(.52,w*.23),a*.76,D.subdiv,u=>Math.sin(2*Math.PI*D.outerTurns*arcAt(u)+sp0)));
+        for(let q=0;q<plyCount;q++){
+          const qp=q*2*Math.PI/plyCount;
+          for(let k=0;k<D.fibersPerPly;k++){
+            const kp=k*2*Math.PI/D.fibersPerPly;
+            const fiberPoint=u=>{
+              const base=pointOnBaseSegment(s,u),t=tangentOnBaseSegment(s,u),ss=arcAt(u);
+              const sp=2*Math.PI*D.outerTurns*ss+sp0,mp=2*Math.PI*D.midTurns*ss+qp,ip=2*Math.PI*D.innerTurns*ss+kp;
+              const migrate=1+D.migration*Math.sin(2*Math.PI*1.7*ss+kp+qp);
+              const sx=Math.cos(sp)*strandR,sy=Math.sin(sp)*strandR;
+              const mx=Math.cos(mp)*midR,my=Math.sin(mp)*midR;
+              const fx=Math.cos(ip)*fiberR*migrate,fy=Math.sin(ip)*fiberR*migrate;
+              return offset3D(base,t,sx+mx+fx,sy+my+fy,bundleR*.72);
+            };
+            const ph=2*Math.PI*D.outerTurns*((s.arc0+s.arc1)/2)+sp0;
+            parts.push(...drawFiberMiniPath(s,fiberPoint,shadeByCrossSection(c,ph+q*.2+k*.08,p.roughness),Math.max(.24,w*.043),a*.80,D.subdiv,u=>Math.sin(2*Math.PI*D.outerTurns*arcAt(u)+sp0)+.24*Math.sin(2*Math.PI*D.midTurns*arcAt(u)+qp)));
+          }
+        }
       }
     }
-    // Back fibres first, front fibres last. This is the cross-section's own twist order, not the camera-depth ordering between stitched threads.
-    fibreSegments.sort((x,y)=>x.depth-y.depth);
-    for(const f of fibreSegments)strokeOne(f.seg,f.color,f.width,f.alpha);
-    // A few longitudinal glints make each individual fibre readable at normal zoom.
-    if(w>3.2){for(let j=0;j<outerCount;j++){const ph0=2*Math.PI*(D.turnPerSeg*(s.segIndex||0))+j*2*Math.PI/outerCount,ph1=2*Math.PI*(D.turnPerSeg*((s.segIndex||0)+1))+j*2*Math.PI/outerCount;const gl=helixProjectedSegment(s,Math.cos(ph0)*outerRadius,Math.sin(ph0)*outerRadius,Math.cos(ph1)*outerRadius,Math.sin(ph1)*outerRadius);strokeOne(gl,'rgba(255,255,255,.68)',Math.max(.22,w*.035),a*(.18+.22*p.highlight));}}
-    drawFlyaway(s,c,w,a,p);
+    addProceduralHairiness(s,c,w,a,p,D,parts);
+    // Within a single yarn cross-section, fibre visibility legitimately changes with view angle.
+    // This sort is local to the yarn's own fibres and does not change stitch-over/stitch-under order.
+    parts.sort((x,y)=>x.depth-y.depth);
+    for(const f of parts)strokeOne(f.seg,f.color,f.width,f.alpha,{cap:'butt'});
   }
   function drawThreadSegment(s){
     const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale*threadWidthFor(s.color),c=threadColorFor(s.color),a=s.alpha;
@@ -1513,7 +1616,7 @@
       }
     }
     const rh=document.createElement('h3');rh.textContent='Realistic 3D rendering / physics references';allReferencesList.appendChild(rh);
-    const rrefs=[['Stable Cosserat Rods — SIGGRAPH 2025','https://jerryhsu.io/projects/StableCosseratRods/'],['Stable Cosserat Rods — GitHub','https://github.com/jerry060599/StableCosseratRods'],['YarnBall — GitHub','https://github.com/jerry060599/YarnBall'],['Real-Time Knit Deformation and Rendering — SIGGRAPH 2025','https://kuiwuchn.github.io/rtstitch'],['Mechanics-Aware Deformation of Yarn Pattern Geometry — GitHub','https://github.com/kamleshbhalui/MADYPG'],['Realistic fabric rendering with yarn models — 2023','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['A Wave Optics Based Fiber Scattering Model','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber — GitHub','https://github.com/mandyxmq/WaveOpticsFiber'],['The Design Space of Kirchhoff Rods — SIGGRAPH Asia 2023','https://visualcomputing.ist.ac.at/publications/2023/TDSOKR/']];
+    const rrefs=[['Stable Cosserat Rods — SIGGRAPH 2025','https://jerryhsu.io/projects/StableCosseratRods/'],['Stable Cosserat Rods — GitHub','https://github.com/jerry060599/StableCosseratRods'],['YarnBall — GitHub','https://github.com/jerry060599/YarnBall'],['Real-Time Knit Deformation and Rendering — SIGGRAPH 2025','https://kuiwuchn.github.io/rtstitch'],['Mechanics-Aware Deformation of Yarn Pattern Geometry — GitHub','https://github.com/kamleshbhalui/MADYPG'],['Realistic fabric rendering with yarn models — 2023','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Fiber-scale staple yarn models — 2026','https://journals.sagepub.com/doi/10.1177/00405175241307861'],['A Wave Optics Based Fiber Scattering Model','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber — GitHub','https://github.com/mandyxmq/WaveOpticsFiber'],['The Design Space of Kirchhoff Rods — SIGGRAPH Asia 2023','https://visualcomputing.ist.ac.at/publications/2023/TDSOKR/']];
     for(const [label,url] of rrefs){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a)}
     const h=document.createElement('h3');h.textContent='TemariKai indexes';allReferencesList.appendChild(h);
     for(const [label,url] of globalReferences){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a)}
