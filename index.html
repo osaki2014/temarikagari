@@ -1428,8 +1428,49 @@
     const F=frameAtPoint(base,tangent),outward=F.e1;
     return add(add(add(base,scale(F.e1,x)),scale(F.e2,y)),scale(outward,lift));
   }
+  function segmentPieceMeta(s){
+    if(s&&s.a&&s.a.meta)return s.a.meta;
+    if(s&&s.b&&s.b.meta)return s.b.meta;
+    return null;
+  }
+  function projectPointOnSegmentPiece(p,s){
+    const m=segmentPieceMeta(s);
+    if(!m||m.mode==='sphere'||m.mode==='ico3d'||m.mode==='trunc3d')return projMeta(p);
+    if(m.mode==='gore'){
+      const g=goreCoordsForIndex(p,m.gore),q=projectLocal2D(g.x,g.y,goreBounds());q.meta={mode:'gore',gore:m.gore,lat:g.y};return q;
+    }
+    if(m.mode==='icoNet')return projectIcoBoundaryPoint(p,m.face);
+    if(m.mode==='truncNet')return projectTruncBoundaryPoint(p,m.face);
+    if(m.mode==='plane'){
+      const ll=cartesianToLatLon(p),bounds=planeBounds();
+      let lon=ll.lon,ref=(s.a&&s.b)?((s.a.meta?.lon??lon)+(s.b.meta?.lon??lon))/2:lon;
+      while(lon-ref>Math.PI)lon-=Math.PI*2;while(lon-ref<-Math.PI)lon+=Math.PI*2;
+      const q=projectLocal2D(lon,ll.lat,bounds);q.meta={mode:'plane',lon,lat:ll.lat};return q;
+    }
+    return projMeta(p);
+  }
   function projectedMiniSeg(p0,p1,s,first=false,last=false){
-    const a=proj(p0),b=proj(p1);return{...s,a,b,p0,p1,z:(a.z+b.z)/2,r:(len(p0)+len(p1))/2,isFirst:first,isLast:last};
+    const a=projectPointOnSegmentPiece(p0,s),b=projectPointOnSegmentPiece(p1,s);return{...s,a,b,p0,p1,z:(a.z+b.z)/2,r:(len(p0)+len(p1))/2,isFirst:first,isLast:last};
+  }
+  function beginPieceClip(s){
+    const m=segmentPieceMeta(s);if(!m)return false;
+    if(!(m.mode==='plane'||m.mode==='gore'||m.mode==='icoNet'||m.mode==='truncNet'))return false;
+    ctx.beginPath();
+    if(m.mode==='plane'){
+      const b=planeBounds(),q0=projectLocal2D(-b.width/2,b.height/2,b),q1=projectLocal2D(b.width/2,-b.height/2,b);ctx.rect(Math.min(q0.x,q1.x),Math.min(q0.y,q1.y),Math.abs(q1.x-q0.x),Math.abs(q1.y-q0.y));
+    }else if(m.mode==='gore'){
+      const n=divisionCountForKey(),span=2*Math.PI/n,strip=span*1.18,cxg=(m.gore-n/2+.5)*strip,b=goreBounds();
+      let first=true;
+      for(let i=0;i<=96;i++){const lat=-Math.PI/2+i*Math.PI/96,half=Math.max(.02,Math.cos(lat)*span*.47),q=projectLocal2D(cxg-half,lat,b);if(first){ctx.moveTo(q.x,q.y);first=false}else ctx.lineTo(q.x,q.y)}
+      for(let i=96;i>=0;i--){const lat=-Math.PI/2+i*Math.PI/96,half=Math.max(.02,Math.cos(lat)*span*.47),q=projectLocal2D(cxg+half,lat,b);ctx.lineTo(q.x,q.y)}ctx.closePath();
+    }else if(m.mode==='icoNet'){
+      const b={width:icoNet.bounds.width,height:icoNet.bounds.height},face=icoNet.faces[m.face]; if(!face)return false;
+      face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,pt.y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2,b);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();
+    }else if(m.mode==='truncNet'){
+      const b={width:truncNet.bounds.width,height:truncNet.bounds.height},face=truncNet.faces[m.face]; if(!face)return false;
+      face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,b);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();
+    }
+    ctx.clip();return true;
   }
   function shadeByCrossSection(color,phase,rough=.5){
     // phase near camera-facing side gets brighter; opposite side darker.
@@ -1463,7 +1504,7 @@
       for(let i=0;i<loop.length-1;i++){const seg=projectedMiniSeg(loop[i],loop[i+1],s,false,false);parts.push({seg,color:tintRgb(c,.10),width:Math.max(.25,w*.04),alpha:a*.38,depth:seg.z+.4});}
     }
   }
-  function drawRealisticThread(s,c,w,a,material){
+  function drawRealisticThreadBody(s,c,w,a,material){
     const p=realisticPresets[material]||realisticPresets.cotton;
     if(p.family==='metal'){
       strokeOne(s,tintRgb(c,-.56),w+2.0,a*.58);strokeOne(s,p.name==='ピアノ線'?tintRgb(c,.34):tintRgb(c,-.16),w+1.05,a*.96);
@@ -1543,6 +1584,16 @@
     // This sort is local to the yarn's own fibres and does not change stitch-over/stitch-under order.
     parts.sort((x,y)=>x.depth-y.depth);
     for(const f of parts)strokeOne(f.seg,f.color,f.width,f.alpha,{cap:'butt'});
+  }
+  function drawRealisticThread(s,c,w,a,material){
+    // Realistic yarn generates fibre/ply geometry after the centreline has already
+    // been split at a flat-net boundary.  Clip every generated sub-fibre to the
+    // exact same gore/face as that centreline segment so procedural offsets can
+    // never bridge across cut edges of a printable net.
+    ctx.save();
+    beginPieceClip(s);
+    drawRealisticThreadBody(s,c,w,a,material);
+    ctx.restore();
   }
   function drawThreadSegment(s){
     const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale*threadWidthFor(s.color),c=threadColorFor(s.color),a=s.alpha;
