@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>かがり手まり 3D制作工程アニメーション</title>
 <style>
 
@@ -24,6 +24,7 @@
     text-rendering:optimizeLegibility;
   }
   #app{position:relative;width:100vw;height:100vh;background:#ffffff}
+  @supports (height:100dvh){#app{height:100dvh}}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:#ffffff}
 
   /* kisode.com/philosophy の画面構成に合わせ、カードUIを使わず余白と文字組で整理 */
@@ -316,8 +317,21 @@
     #needleStatus{right:18px;top:52px}
   }
   @media(max-width:820px){
-    #viewerTimeline{left:16px;right:16px;bottom:12px;padding-top:8px}
-    body.panel-closed #viewerTimeline{left:16px}
+    #viewerTimeline{
+      position:fixed;z-index:30;left:12px;right:12px;
+      bottom:calc(8px + env(safe-area-inset-bottom, 0px));
+      padding:8px 10px 1px;background:rgba(255,255,255,.965);
+      backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+      border-top:1px solid rgba(80,80,80,.16);
+    }
+    body.panel-closed #viewerTimeline{left:12px}
+    #viewerTimeline #timelineHeader{margin-bottom:1px}
+    #viewerTimeline #timelineRuler{height:43px}
+    #timelineRange{top:-6px;height:40px}
+    #timelineRange::-webkit-slider-runnable-track{height:30px}
+    #timelineRange::-webkit-slider-thumb{width:18px;height:18px;margin-top:6px}
+    #timelinePosition{font-size:9px}
+    #timelineHint{font-size:8px}
     #needleStatus{display:none}
   }
 
@@ -482,7 +496,7 @@
       <div id="stepText">再生すると、①手まり芯 → ②地割り → ③かがり の順に制作工程を表示します。</div>
 
     </div>
-    <div id="legend">操作：ドラッグ＝回転、Shift＋ドラッグ＝平行移動、ホイール＝拡大縮小。タイムラインはクリック／ドラッグで任意工程へ移動できます。<br>工程は ①手まり芯 → ②地割り → ③かがり。Simple / C8 / C10 の地割り順は TemariKai の公開手順を基準にしています。「原典順序トレース」のかがりは、参照ページに明記された順番・点番号・反復順を工程化しています。TemariKaiの画像や文章そのものは収録していません。</div>
+    <div id="legend">操作：ドラッグ＝回転、Shift＋ドラッグ＝平行移動、ホイール／2本指ピンチ＝拡大縮小。スマホでは3D画面をタップすると再生／一時停止できます。タイムラインはクリック／ドラッグで任意工程へ移動できます。<br>工程は ①手まり芯 → ②地割り → ③かがり。Simple / C8 / C10 の地割り順は TemariKai の公開手順を基準にしています。「原典順序トレース」のかがりは、参照ページに明記された順番・点番号・反復順を工程化しています。TemariKaiの画像や文章そのものは収録していません。</div>
   </div>
   <div id="viewerTimeline" aria-label="3Dビュー工程タイムライン">
     <div id="timelineWrap" aria-label="工程タイムライン">
@@ -1727,7 +1741,57 @@
   yarnTextureInput.addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=160;c.height=32;const x=c.getContext('2d');const sc=Math.max(c.width/img.width,c.height/img.height),w=img.width*sc,h=img.height*sc;x.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);yarnPattern=ctx.createPattern(c,'repeat');textureStatus.textContent=`${file.name} を糸表面として使用`;URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)});
   timelineRange.addEventListener('input',e=>{state.playing=false;const total=sequence().length,pos=clamp(parseFloat(e.target.value)/1000,0,total);if(pos>=total){state.stepIndex=total;state.stepProgress=0}else{state.stepIndex=Math.floor(pos);state.stepProgress=pos-state.stepIndex}rebuildFinished();updateUI()});
 
-  let drag=false,lastX=0,lastY=0;canvas.addEventListener('pointerdown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;if(e.shiftKey){state.panX+=dx;state.panY+=dy}else{state.ry+=dx*.008;state.rx+=dy*.008}});canvas.addEventListener('pointerup',()=>drag=false);canvas.addEventListener('pointercancel',()=>drag=false);canvas.addEventListener('wheel',e=>{e.preventDefault();state.zoom=clamp(state.zoom*Math.exp(-e.deltaY*.001),.42,2.6)},{passive:false});
+  // Pointer/touch controls. One finger rotates; two-finger pinch zooms.
+  // A short stationary touch on the 3D canvas toggles play/pause on touch devices.
+  const activePointers=new Map();
+  let gestureMode='none',lastX=0,lastY=0,pinchStartDistance=0,pinchStartZoom=1;
+  let tapCandidate=false,tapStartX=0,tapStartY=0,tapStartTime=0,tapPointerId=null;
+  const pointerDistance=()=>{const pts=[...activePointers.values()];if(pts.length<2)return 0;return Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y)};
+  function togglePlaybackFromTap(){
+    if(state.playing){state.playing=false;return;}
+    if(state.stepIndex>=sequence().length)reset();
+    state.playing=true;
+  }
+  canvas.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY,type:e.pointerType});
+    try{canvas.setPointerCapture(e.pointerId)}catch(_){}
+    if(activePointers.size===1){
+      gestureMode='rotate';lastX=e.clientX;lastY=e.clientY;
+      tapCandidate=e.pointerType==='touch';tapStartX=e.clientX;tapStartY=e.clientY;tapStartTime=performance.now();tapPointerId=e.pointerId;
+    }else if(activePointers.size===2){
+      gestureMode='pinch';pinchStartDistance=Math.max(1,pointerDistance());pinchStartZoom=state.zoom;tapCandidate=false;
+    }else{tapCandidate=false;}
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!activePointers.has(e.pointerId))return;
+    e.preventDefault();
+    activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY,type:e.pointerType});
+    if(tapCandidate&&Math.hypot(e.clientX-tapStartX,e.clientY-tapStartY)>9)tapCandidate=false;
+    if(activePointers.size>=2){
+      if(gestureMode!=='pinch'){gestureMode='pinch';pinchStartDistance=Math.max(1,pointerDistance());pinchStartZoom=state.zoom;tapCandidate=false;}
+      const d=Math.max(1,pointerDistance());
+      state.zoom=clamp(pinchStartZoom*(d/pinchStartDistance),.42,2.6);
+      return;
+    }
+    if(activePointers.size===1){
+      const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
+      if(e.shiftKey){state.panX+=dx;state.panY+=dy}else{state.ry+=dx*.008;state.rx+=dy*.008}
+    }
+  });
+  function finishPointer(e,cancelled=false){
+    const wasTap=!cancelled&&tapCandidate&&e.pointerId===tapPointerId&&activePointers.size===1&&performance.now()-tapStartTime<450&&Math.hypot(e.clientX-tapStartX,e.clientY-tapStartY)<=9;
+    activePointers.delete(e.pointerId);
+    if(activePointers.size===1){const p=[...activePointers.values()][0];gestureMode='rotate';lastX=p.x;lastY=p.y;}
+    else if(activePointers.size===0){gestureMode='none';}
+    else{gestureMode='pinch';pinchStartDistance=Math.max(1,pointerDistance());pinchStartZoom=state.zoom;}
+    if(wasTap)togglePlaybackFromTap();
+    tapCandidate=false;tapPointerId=null;
+  }
+  canvas.addEventListener('pointerup',e=>finishPointer(e,false));
+  canvas.addEventListener('pointercancel',e=>finishPointer(e,true));
+  canvas.addEventListener('lostpointercapture',e=>{if(activePointers.has(e.pointerId))finishPointer(e,true)});
+  canvas.addEventListener('wheel',e=>{e.preventDefault();state.zoom=clamp(state.zoom*Math.exp(-e.deltaY*.001),.42,2.6)},{passive:false});
 
   let prev=performance.now();
   function frame(now){
