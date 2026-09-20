@@ -510,7 +510,7 @@
       <div id="stepText">再生すると、①手まり芯 → ②地割り → ③かがり の順に制作工程を表示します。</div>
 
     </div>
-    <div id="legend">操作：ドラッグ＝回転、Shift＋ドラッグ＝平行移動、ホイール／2本指ピンチ＝拡大縮小。スマホでは3D画面をタップすると再生／一時停止できます。タイムラインはクリック／ドラッグで任意工程へ移動できます。<br>工程は ①手まり芯 → ②地割り → ③かがり。Simple / C8 / C10 の地割り順は TemariKai の公開手順を基準にしています。「原典順序トレース」のかがりは、参照ページに明記された順番・点番号・反復順を工程化しています。TemariKaiの画像や文章そのものは収録していません。</div>
+    <div id="legend">操作：ドラッグ＝回転、Shift＋ドラッグ＝平行移動、ホイール／2本指ピンチ＝拡大縮小。スマホでは3D画面をタップすると再生／一時停止できます。タイムラインはクリック／ドラッグで任意工程へ移動できます。<br>工程は ①手まり芯 → ②地割り → ③かがり。8等分などの等分地割り、8等分の組み合わせ地割り、10等分の組み合わせ地割りは TemariKai の公開手順を基準にしています。「原典順序トレース」のかがりは、参照ページに明記された順番・点番号・反復順を工程化しています。TemariKaiの画像や文章そのものは収録していません。</div>
   </div>
   <div id="viewerTimeline" aria-label="3Dビュー工程タイムライン">
     <div id="timelineWrap" aria-label="工程タイムライン">
@@ -750,19 +750,19 @@
   }
   function divisionStep(points,title,text,duration=.9,labels=[]){return{kind:'division',phase:2,points,color:'#b5a878',title,text,duration,labels,meta:{}};}
   function coreConstructionStep(){return{kind:'core',phase:1,points:[],color:'#e7dfd2',title:'① 3D手まり芯',text:'まず、糸を巻いて整えた球形の手まり芯を用意します。色は設定の「手まり芯の色」で変更できます。',duration:1.25,labels:[],meta:{}};}
-  function simpleDivisionSteps(n,{includeEquator=true,prefix=`Simple ${n}`}={}){
+  function simpleDivisionSteps(n,{includeEquator=true,prefix=`${n}等分`}={}){
     const steps=[],wraps=Math.floor(n/2);
     for(let i=0;i<wraps;i++){
       const lon=i*360/n;
       steps.push(divisionStep(meridianWrap(lon),`${prefix}：縦地割り ${i+1}/${wraps}`,`北極から赤道の目印を通って南極へ進み、反対側の赤道を通って北極へ戻る一周です。北極で次の赤道目印へ回し、同じ側を通して地割り線を置きます。`,.82,[makeLabel(sph(90,0,1.025),'N'),makeLabel(sph(-90,0,1.025),'S')]));
     }
-    if(includeEquator)steps.push(divisionStep(equatorWrap(),`${prefix}：赤道`,`${n}本の縦線を置いた後、赤道の目印に沿って一周し、各交点を留めてSimple ${n}の地割りを完成させます。`,1.0));
+    if(includeEquator)steps.push(divisionStep(equatorWrap(),`${prefix}：赤道`,`${n}本の縦線を置いた後、赤道の目印に沿って一周し、各交点を留めて${n}等分の地割りを完成させます。`,1.0));
     return steps;
   }
   function c8DivisionSteps(){
-    const steps=simpleDivisionSteps(8,{prefix:'C8 基礎 Simple 8'});
+    const steps=simpleDivisionSteps(8,{prefix:'8等分の組み合わせ地割り：基礎8等分'});
     const normals=[V(1,-1,0),V(1,1,0),V(0,-1,1),V(0,1,1)];
-    normals.forEach((n,i)=>steps.push(divisionStep(greatCircleFromNormal(n),`C8 追加地割り ${i+1}/4`,i<2?'Simple 8の4本おきの線で極―赤道間の1/2点を基準にし、最初の糸で球を一周する斜め地割りを2本置きます。':'2地割り線右へ移り、2本目の糸で同じ要領の斜め地割りを2本追加します。これで6個の8点中心、8個の6点三角、12個の4点菱形ができます。',.95)));
+    normals.forEach((n,i)=>steps.push(divisionStep(greatCircleFromNormal(n),`8等分の組み合わせ地割り：追加線 ${i+1}/4`,i<2?'基礎となる8等分の4本おきの線で、極―赤道間の1/2点を基準にし、最初の糸で球を一周する斜め地割りを2本置きます。':'2地割り線右へ移り、2本目の糸で同じ要領の斜め地割りを2本追加します。これで6個の8点中心、8個の6点三角、12個の4点菱形ができます。',.95)));
     return steps;
   }
   function oppositeVertex(vi){let best=-1,bestDot=1;for(let j=0;j<ico.length;j++){const d=dot(ico[vi],ico[j]);if(d<bestDot){bestDot=d;best=j}}return best;}
@@ -778,8 +778,8 @@
     const steps=[];const base=0,opp=oppositeVertex(base),axis=ico[base];
     const used=new Set(c10System.incident[base]);
     const initial=[...used];
-    initial.forEach((idx,i)=>steps.push(divisionStep(greatCircleFromNormal(c10System.normals[idx]),`C10 基礎 Simple 10：縦地割り ${i+1}/5`,'最初の北極・南極を結ぶSimple 10の縦地割りです。北極から選んだ赤道目印、南極、反対側目印を経て北極へ戻ります。',.82)));
-    steps.push(divisionStep(equatorWrap(axis),'C10 基礎 Simple 10：赤道','5本の縦一周を置いた後、元の北極・南極に直角な赤道を一周してSimple 10を完成させます。',1.0));
+    initial.forEach((idx,i)=>steps.push(divisionStep(greatCircleFromNormal(c10System.normals[idx]),`10等分の組み合わせ地割り：基礎10等分 縦地割り ${i+1}/5`,'最初の北極・南極を結ぶ10等分の縦地割りです。北極から選んだ赤道目印、南極、反対側目印を経て北極へ戻ります。',.82)));
+    steps.push(divisionStep(equatorWrap(axis),'10等分の組み合わせ地割り：基礎10等分 赤道','5本の縦一周を置いた後、元の北極・南極に直角な赤道を一周して10等分を完成させます。',1.0));
     const pairs=[];const seen=new Set([base,opp]);
     for(let i=0;i<ico.length;i++){if(seen.has(i))continue;const j=oppositeVertex(i);pairs.push([i,j]);seen.add(i);seen.add(j)}
     // With this icosahedral construction, the first four temporary pole-pairs add 4,3,2,1 new full-circumference lines; the final pair is completed by the last wrap.
@@ -788,8 +788,8 @@
       fresh.forEach((idx,j)=>{
         used.add(idx);
         const total=fresh.length;
-        const desc=pi===0?'最初の追加極ペアを仮の北極・南極として、他の中心ピンへ順に移りながら4周を置きます。':pi===1?'次の極ペアへ持ち替え、既にある線を利用するため新しく置く線は3周です。':pi===2?'3組目の極ペアから、残る中心へ2周を置きます。':'残った2組の中心ピンを使い、最後の1周を球の全周に回してC10地割りを完成させます。';
-        steps.push(divisionStep(greatCircleFromNormal(c10System.normals[idx]),`C10 追加セット ${pi+1}：${j+1}/${total}`,desc,.92));
+        const desc=pi===0?'最初の追加極ペアを仮の北極・南極として、他の中心ピンへ順に移りながら4周を置きます。':pi===1?'次の極ペアへ持ち替え、既にある線を利用するため新しく置く線は3周です。':pi===2?'3組目の極ペアから、残る中心へ2周を置きます。':'残った2組の中心ピンを使い、最後の1周を球の全周に回して10等分の組み合わせ地割りを完成させます。';
+        steps.push(divisionStep(greatCircleFromNormal(c10System.normals[idx]),`10等分の組み合わせ地割り：追加組 ${pi+1}・${j+1}/${total}`,desc,.92));
       });
     });
     return steps;
@@ -818,16 +818,84 @@
   function insetLocal(coords,f){return coords.map(([x,y])=>[x*f,y*f]);}
 
   // ---------- Pattern builders ----------
-  function patternYaegiku(){
-    const steps=[],colors=['#bd838e','#c78378','#bca06a'];
-    // Official public description specifies 8 petals in two alternating groups of four.
-    for(let layer=0;layer<3;layer++){
-      const top=81-layer*3,bottom=35-layer*2;
-      for(const group of [[0,2,4,6],[1,3,5,7]]){
-        for(const i of group){const lon=i*45;const ctrl=[sph(bottom,lon-17),sph(top,lon),sph(bottom,lon+17)];steps.push(pathStep(ctrl,colors[layer],`第${layer+1}段：${group[0]===0?'先の4枚':'後の4枚'} / 花びら${i+1}`,`8片を4枚ずつ交互にかがる、公開されている八重菊の基本順序を表示しています。`,.75,[makeLabel(ctrl[1],String(i+1))]));}
-      }
+  function yaegikuPetalRow(hemi,centers,row,{outline=false}={}){
+    // Photo-matched public-range model for Sanuki Kagari Temari KIT007-1.
+    // The public product description specifies an 8-division base and eight
+    // petals worked as two alternating groups of four.  Each row is a single
+    // continuous Kiku circuit: near-pole base -> outward pointed tip ->
+    // near-pole base, then a short transfer around the flower centre to the
+    // next petal in the same four-petal group.
+    const baseAbs=outline?74.8:(84.2-row*1.55);
+    const tipAbs=outline?20.5:(31.5-row*1.55);
+    const half=outline?13.1:(5.2+row*1.42);
+    const ctrl=[];
+    for(let k=0;k<centers.length;k++){
+      const lon=centers[k];
+      const a=sph(hemi*baseAbs,lon-half,1.012),tip=sph(hemi*tipAbs,lon,1.012),b=sph(hemi*baseAbs,lon+half,1.012);
+      if(!ctrl.length)ctrl.push(a); else ctrl.push(a);
+      ctrl.push(tip,b);
     }
-    return{category:'日本の公開手順',name:'八重菊（讃岐かがり手まり・公開範囲）',division:'simple8',fidelity:'public',intro:'讃岐かがり手まり公式が公開している「8片を4枚ずつ交互にかがる」という構造を忠実に表示。キット付属テキストの非公開細部は推測していません。',source:'https://shop.eiko-temari.jp/items/29621770',steps};
+    // close the four-petal circuit around the polar centre.  This short arc is
+    // what creates the woven-looking centre seen in the official photographs.
+    const lon0=centers[0];ctrl.push(sph(hemi*baseAbs,lon0-half,1.012));
+    return ctrl;
+  }
+  function gt14KikuSteps({namePrefix='八重菊',colorA='#bd838e',colorB='#839db0',finish='#b99b61'}={}){
+    const steps=[];
+    // GT14: the pin for the lower stitch is 1/3 of the pole-to-equator distance
+    // above the equator (= about 30 degrees latitude on this normalized sphere).
+    // The top stitch starts about 5 mm below the pole. For the 23-25 cm
+    // circumference mari specified by GT14 that is about 7-8 degrees of arc,
+    // so we normalize the first top stitch to 82.5 degrees latitude.
+    // The source tells the maker to continue alternating A/B until the equator;
+    // it does not prescribe a fixed row count. The animation uses 8 display rows
+    // so the lower points reach the equator while preserving the stated order.
+    const rows=8;
+    for(const hemi of [1,-1]){
+      const side=hemi>0?'北極側':'南極側';
+      for(let row=0;row<rows;row++){
+        const topAbs=82.5-row*3.65;
+        const bottomAbs=Math.max(.8,30-row*4.15);
+        const top=topAbs*hemi,bottom=bottomAbs*hemi;
+        const pA=simpleZigzag(8,top,bottom,0,1);
+        const pB=simpleZigzag(8,top,bottom,1,1);
+        steps.push(pathStep(
+          pA,colorA,
+          `${namePrefix} ${side}：色A 第${row+1}周`,
+          row===0
+            ? '色Aを極から約5 mm下の地割り線左側から出し、1本右の地割り線で下側の小さなかがり、さらに1本右で上側の小さなかがりを取り、この上下を交互にして一周します。'
+            : '色Aを前の周と平行に一周します。下側のかがりは前周より1〜2 mm外側へ伸ばして尖端を滑らかにし、上側は前周より糸幅1本ほど外・下へ広げます。上側を取る前に作業糸を必ず既存糸の上へ渡します。',
+          1.2,[makeLabel(pA[0],row===0?'色A開始':'色A')],{stitch:'uwagake'}
+        ));
+        steps.push(pathStep(
+          pB,colorB,
+          `${namePrefix} ${side}：色B 第${row+1}周`,
+          row===0
+            ? '色Aの「下側のかがり」がある地割り線から色Bを極から約5 mm下で出し、色Aと同じ上下交互の千鳥で一周します。'
+            : '色Bも色Aと同じ要領で前周と平行に重ねます。色A・色Bを1周ずつ交互に進め、上掛けによって2色の帯が交差して編まれたような部分を作ります。',
+          1.2,[makeLabel(pB[0],row===0?'色B開始':'色B')],{stitch:'uwagake'}
+        ));
+      }
+      // GT14 says a third colour may be used for one finishing round on both
+      // colour sets.  Represent both sets explicitly rather than a single path.
+      const topAbs=82.5-rows*3.65,bottomAbs=.6;
+      const fA=simpleZigzag(8,topAbs*hemi,bottomAbs*hemi,0,1);
+      const fB=simpleZigzag(8,topAbs*hemi,bottomAbs*hemi,1,1);
+      steps.push(pathStep(fA,finish,`${namePrefix} ${side}：仕上げ色・色A側`,'必要に応じて第三色で、色A側の並びに仕上げの1周を加えます。',1.05,[],{stitch:'uwagake'}));
+      steps.push(pathStep(fB,finish,`${namePrefix} ${side}：仕上げ色・色B側`,'同じ第三色で色B側にも仕上げの1周を加えます。',1.05,[],{stitch:'uwagake'}));
+    }
+    return steps;
+  }
+  function patternYaegiku(){
+    return{
+      category:'日本語で追う公開手順',
+      name:'八重菊（TemariKai GT14 上掛け千鳥）',
+      division:'simple8',
+      fidelity:'explicit',
+      intro:'TemariKai GT14の公開手順に合わせた八重菊。8等分の地割りで、色Aを上下交互の千鳥で一周→色Bを同じ千鳥で一周→A/Bを交互に重ねます。2周目以降は上側のかがりを取る前に必ず既存糸の上を通す「上掛け」とし、下側の尖端を少しずつ赤道方向へ伸ばして、2色が交差する菊模様を作ります。最後に南極側も同じ順序で行います。',
+      source:'https://www.temarikai.com/PatternsPages/Simple/GT14.html',
+      steps:gt14KikuSteps({namePrefix:'八重菊'})
+    };
   }
   function patternKotenKiku(){
     const steps=[];const cols=['#eee9df','#cdbb83','#d7a1aa','#bf858e','#b99b61'];
@@ -841,16 +909,64 @@
     }
     return{category:'日本の公開手順',name:'古典菊（オリムパス公開手順）',division:'simple16',fidelity:'explicit',intro:'公開ページの「白ピン群を一周→左隣の黄ピン群を一周→色を替えて反復」という順序を工程化。段数・配色は表示用に5段へ正規化しています。',source:'https://www.olympus-thread.com/original/tedukuri_lesson/temari201103/tm7.html',steps};
   }
-  function patternAsanoha(){
-    const steps=[];
-    for(let ti=0;ti<cubeCorners.length;ti++){
-      const c=cubeCorners[ti];const tri=[[-.62,-.38],[.62,-.38],[0,.7]];const mids=[[0,-.38],[.31,.16],[-.31,.16]],center=[0,0];
-      const core=localPath(c,[center,mids[0],center,mids[1],center,mids[2]],.62);
-      steps.push(pathStep(core,'#8fa58c',`麻の葉：三角面${ti+1} 中心`, '公開説明に従い、まず三角形の中心を意識して内側の線を作ります。',1.05));
-      const frame=localPath(c,[tri[0],tri[1],tri[2],tri[0]],.62);
-      steps.push(pathStep(frame,'#b99b61',`麻の葉：三角面${ti+1} 外枠`,'中心部の後に、三角形の外枠をかがります。',1.0));
+  function c8OuterRing(center){
+    // Around each C8 8-point center, the neighboring intersections alternate
+    // between 6-point cube corners and 4-point edge centers.  Sorting them in
+    // the local tangent plane gives the eight sectors used by Asa-no-ha.
+    const cand=[
+      ...cubeCorners.filter(p=>dot(center,p)>.54),
+      ...c8EdgeCenters.filter(p=>dot(center,p)>.54)
+    ];
+    const {u,v}=tangentBasis(center);
+    return cand.sort((a,b)=>{
+      const aa=Math.atan2(dot(a,v),dot(a,u)),bb=Math.atan2(dot(b,v),dot(b,u));
+      return aa-bb;
+    });
+  }
+  function asaPointX(a,b,c,f=.58){
+    // TemariKai: in triangle a-b-c, drop the median from apex b to side a-c;
+    // Point X lies 1/2–2/3 along b→mid(a,c).  Use 0.58 consistently.
+    const y=slerpPoint(a,c,.5,1.0);
+    return slerpPoint(b,y,f,1.012);
+  }
+  function asanohaCenterGeometry(center){
+    const ring=c8OuterRing(center),xs=[];
+    for(let i=0;i<8;i++){
+      const b=ring[i],a=ring[(i+1)%8];
+      xs.push(asaPointX(a,b,center,.58));
     }
-    return{category:'日本の公開手順',name:'8等分の麻の葉（公開説明範囲）',division:'c8',fidelity:'public',intro:'てまり-ねこの公開説明で示される「8等分の組み合わせ地割」「中心を作ってから枠」という順序を表示。販売/PDF部分の非公開手順は再現していません。',source:'https://note.com/temari_cat/n/nd0e2bc7b59a5',steps};
+    return{center:scale(norm(center),1.012),ring:ring.map(p=>scale(norm(p),1.012)),xs};
+  }
+  function patternAsanoha(){
+    const steps=[],red='#b4434f',geoms=c8Centers.map(asanohaCenterGeometry);
+    // #37 / video workflow: first establish the pine-needle (Matsuba) centers.
+    // Work opposite tips as one straight Matsuba stroke, creating 8 rays at each
+    // of the six 8-point centers of the C8 division.
+    geoms.forEach((g,ci)=>{
+      for(let i=0;i<4;i++){
+        const ctrl=[g.xs[i],g.center,g.xs[i+4]];
+        steps.push(pathStep(ctrl,red,`麻の葉 1：松葉かがり ${ci+1}/6・${i+1}/4`,
+          '8等分組み合わせ地割りの8点中心で、まず向かい合う2方向を一続きにかがって松葉を作ります。4本で8方向の先端Xがそろいます。',.82,
+          [makeLabel(g.center,'中心'),makeLabel(g.xs[i],'X'),makeLabel(g.xs[i+4],'X')],{stitch:'matsuba'}));
+      }
+    });
+    // Then connect the Matsuba tips.  Each V passes through the neighbouring
+    // C8 intersection and joins two adjacent X points. Together with the
+    // already-stitched center→X rays, this forms eight radiating diamonds.
+    geoms.forEach((g,ci)=>{
+      const path=[];
+      for(let i=0;i<8;i++){
+        const prev=(i+7)%8;
+        if(i===0)path.push(g.xs[prev]);
+        path.push(g.ring[i],g.xs[i]);
+      }
+      steps.push(pathStep(path,red,`麻の葉 2：松葉の先をつなぐ ${ci+1}/6`,
+        '松葉の隣り合う先端Xを、8等分の組み合わせ地割り上の交点を経由して順につなぎます。中心からの松葉線と組み合わさり、8枚の菱形が放射する麻の葉になります。',1.65,
+        g.xs.map((p,i)=>makeLabel(p,`X${i+1}`)),{stitch:'asanoha-frame'}));
+    });
+    return{category:'日本の公開手順',name:'8等分の麻の葉（てまり-ねこ #37）',division:'c8',fidelity:'explicit',
+      intro:'てまり-ねこ #37 の完成形と公開説明、8等分組み合わせ地割りの麻の葉の幾何を照合して修正。①8等分の組み合わせ地割り、②6つの8点中心に松葉かがり、③松葉の先端Xを地割り交点経由でつなぎ、中心から8枚の菱形が放射する麻の葉を作ります。',
+      source:'https://note.com/temari_cat/n/nd0e2bc7b59a5',steps};
   }
   function patternMasuFujix(){
     const steps=[];
@@ -873,17 +989,15 @@
   }
 
   function patternGT14(){
-    const steps=[],A='#839db0',B='#bd838e',finish='#b99b61';
-    for(const hemi of [1,-1]){
-      for(let row=0;row<5;row++){
-        const top=(84-row*2.2)*hemi,bottom=(30-row*2.6)*hemi;
-        const pA=simpleZigzag(8,top,bottom,0,1),pB=simpleZigzag(8,top,bottom,1,1);
-        steps.push(pathStep(pA,A,`GT14 ${hemi>0?'北':'南'}半球：Color A 第${row+1}周`,row===0?'Color Aで上・下の小さなかがりを交互に取り、千鳥で一周します。':'前周と平行に進め、上側は前の糸を越えてかがります。下の点は外側へ伸ばします。',1.2,[makeLabel(pA[0],'開始')]));
-        steps.push(pathStep(pB,B,`GT14 ${hemi>0?'北':'南'}半球：Color B 第${row+1}周`,row===0?'Color Aの下側ステッチがある線からColor Bを開始し、同じ千鳥順で一周します。':'Color Aと交互に戻りながら周を重ね、交差（kousa）を保ちます。',1.2));
-      }
-      const pF=simpleZigzag(8,(84-5*2.2)*hemi,(30-5*2.6)*hemi,0,1);steps.push(pathStep(pF,finish,`GT14 ${hemi>0?'北':'南'}半球：仕上げ色`,'原典では希望により第三色で両色セットを仕上げることができます。',1.05));
-    }
-    return{category:'TemariKai 原典トレース',name:'GT14 — 基本の菊 / Uwagake Chidori',division:'simple8',fidelity:'explicit',intro:'Simple 8。Color Aの千鳥一周→Color Bの一周→A/Bを交互に重ね、上側で前周を越すUwagake。最後に反対極を同様に仕上げます。',source:'https://www.temarikai.com/PatternsPages/Simple/GT14.html',steps};
+    return{
+      category:'TemariKai 原典トレース',
+      name:'GT14 — 基本の菊／上掛け千鳥',
+      division:'simple8',
+      fidelity:'explicit',
+      intro:'8等分。色Aを千鳥で一周→色Bを一周→A/Bを交互に重ね、上側では前の糸の上を通す上掛け千鳥。下側の尖端を赤道方向へ少しずつ伸ばしながら赤道まで進め、反対側の極も同じ順序で仕上げます。',
+      source:'https://www.temarikai.com/PatternsPages/Simple/GT14.html',
+      steps:gt14KikuSteps({namePrefix:'GT14 基本の菊'})
+    };
   }
 
   function patternGT02(){
@@ -891,12 +1005,12 @@
     // spindles on each marking line, north then south
     for(const hemi of [1,-1])for(let line=0;line<8;line++)for(let r=0;r<5;r++){
       const latA=(67-r*.25)*hemi,latB=(43+r*.2)*hemi,ctrl=simpleSpindle(line*45,latA,latB,1.7,r);
-      steps.push(pathStep(ctrl,cols[r%cols.length],`GT02：${hemi>0?'北':'南'}半球 線${line+1} spindle ${r+1}/5`,'A点とB点を交互に向け直してかがるtsumu/spindleを、各地割り線で同じ回数作ります。',.65,[makeLabel(ctrl[0],'A'),makeLabel(ctrl[2],'B')]));
+      steps.push(pathStep(ctrl,cols[r%cols.length],`GT02：${hemi>0?'北':'南'}半球 線${line+1} 紡錘形 ${r+1}/5`,'A点とB点を交互に向け直してかがる紡錘形かがりを、各地割り線で同じ回数作ります。',.65,[makeLabel(ctrl[0],'A'),makeLabel(ctrl[2],'B')]));
     }
     // center section: four labeled sets in the stated order; repeat three layers.
     const sets=[{name:'1–4',start:0,col:'#bc7b78'},{name:'A–D',start:1,col:'#839db0'},{name:'a–d',start:2,col:'#8fa783'},{name:'w–z',start:3,col:'#a78da9'}];
     for(let layer=0;layer<3;layer++)for(const s of sets){const pts=[];for(let i=0;i<=8;i++){const lon=(s.start+i)*45;const lat=((i%2===0)?1:-1)*(12+layer*3);pts.push(sph(lat,lon));}steps.push(pathStep(pts,s.col,`GT02 中央：${s.name} 第${layer+1}周`,'原典図の4系列を1系列ずつ、右へ1地割り線ずらしながらdouble-ended Uwagake Chidoriとして交差させます。',1.0));}
-    return{category:'TemariKai 原典トレース',name:'GT02 — Spindle＋中央の両端千鳥',division:'simple8',fidelity:'explicit',intro:'各地割り線の両半球にspindleを作った後、中央部を4系列（1–4、A–D、a–d、w–z）の順で交差させる原典工程を表示。',source:'https://www.temarikai.com/PatternsPages/Simple/GT02.html',steps};
+    return{category:'TemariKai 原典トレース',name:'GT02 — 紡錘形＋中央の両端千鳥',division:'simple8',fidelity:'explicit',intro:'各地割り線の両半球に紡錘形を作った後、中央部を4系列（1–4、A–D、a–d、w–z）の順で交差させる原典工程を表示。',source:'https://www.temarikai.com/PatternsPages/Simple/GT02.html',steps};
   }
 
   function patternGT73(){
@@ -912,7 +1026,7 @@
     steps.push(pathStep(simpleZigzag(8,-88,-69,0,1),'#829b7b','GT73：南極の小さなChidori','南極にも同じ小さいUwagake Chidoriを追加します。',.9));
     // matsuba in four square centers
     for(let q=0;q<4;q++){const c=sph(0,q*90);for(const pair of matsubaAt(c,8,.32,.42))steps.push(pathStep(pair,'#b99b61',`GT73：Square ${String.fromCharCode(65+q)} 松葉`,'各赤道square中央を金のmatsuba直線で飾ります。',.28));}
-    return{category:'TemariKai 原典トレース',name:'GT73 — Kousa層＋4 Squares',division:'simple8',fidelity:'explicit',intro:'原典が指定する「North Pole Chidori → South Pole Chidori → Square A → B → C → D」を層ごとに反復し、最後に小菊と松葉を追加します。',source:'https://www.temarikai.com/PatternsPages/Simple/GT73.html',steps};
+    return{category:'TemariKai 原典トレース',name:'GT73 — 交差かがり＋4つの四角',division:'simple8',fidelity:'explicit',intro:'原典が指定する「北極の千鳥 → 南極の千鳥 → 四角A → B → C → D」を層ごとに反復し、最後に小菊と松葉を追加します。',source:'https://www.temarikai.com/PatternsPages/Simple/GT73.html',steps};
   }
 
   function gt21Cycle(center,which,round){
@@ -928,7 +1042,7 @@
   }
   function patternGT21(){
     const steps=[];for(let face=0;face<c8Centers.length;face++){const c=c8Centers[face];for(let r=0;r<6;r++){const n=gt21Cycle(c,'num',r);steps.push(pathStep(n.pts,'#829faa',`GT21 面${face+1} 周${r+1}：1→16→1`,'原典の番号サイクル1から16を順にたどって開始点へ戻ります。',1.1,n.labels));const a=gt21Cycle(c,'alpha',r);steps.push(pathStep(a.pts,'#bd838e',`GT21 面${face+1} 周${r+1}：A→H→A`,'続けて文字サイクルAからHを順にたどり、2系列を交互に重ねます。',.9,a.labels));}}
-    return{category:'TemariKai 原典トレース',name:'GT21 — C8 1–16 / A–H 交互サイクル',division:'c8',fidelity:'explicit',intro:'C8の6つの8点中心で、原典どおり「1–16→1」「A–H→A」の2サイクルを交互に反復します。3D上の点配置は原典図を球面へ正規化したものです。',source:'https://www.temarikai.com/PatternsPages/C8/GT21.html',steps};
+    return{category:'TemariKai 原典トレース',name:'GT21 — 8等分組み合わせ地割り 1–16／A–H 交互サイクル',division:'c8',fidelity:'explicit',intro:'8等分の組み合わせ地割りにできる6つの8点中心で、原典どおり「1–16→1」「A–H→A」の2サイクルを交互に反復します。3D上の点配置は原典図を球面へ正規化したものです。',source:'https://www.temarikai.com/PatternsPages/C8/GT21.html',steps};
   }
 
   function patternSSh01(){
@@ -940,18 +1054,18 @@
       let offset=0;for(const [col,n,name] of roundSets){for(let r=0;r<n;r++){const f=1+(offset+r)*.045;const cc=triWing.map(([x,y])=>[x*f,y*f]);pts=localPath(c,cc,.62);labs=labsWing.slice(0,-1).map((l,i)=>makeLabel(pts[i],l));steps.push(pathStep(pts,col,`SSh01 三角面${ti+1}：${name} ${r+1}/${n}`,'原典のmitsubane順序 1→e→5→d→3→f→1 を繰り返します。',.82,labs));}offset+=n;}
     }
     for(let ei=0;ei<c8EdgeCenters.length;ei++){const c=c8EdgeCenters[ei];for(const pair of matsubaAt(c,6,.20,.36))steps.push(pathStep(pair,'#b99b61',`SSh01：4点交差 ${ei+1} 松葉`,'8つの三羽根亀甲の間に残る4点交差を金属糸のmatsubaで飾ります。',.22));}
-    return{category:'TemariKai 原典トレース',name:'SSh01 — Mitsubane Kikkou（三羽根亀甲）',division:'c8',fidelity:'explicit',intro:'8つのC8三角面で、中心六角1-2-3-4-5-6-1の後、三羽根を1-e-5-d-3-f-1で4+4+2周。最後に4点交差へ松葉。',source:'https://www.temarikai.com/PatternsPages/C8Pg2/SSh01.html',steps};
+    return{category:'TemariKai 原典トレース',name:'SSh01 — Mitsubane Kikkou（三羽根亀甲）',division:'c8',fidelity:'explicit',intro:'8等分の組み合わせ地割りにできる8つの三角面で、中心六角1-2-3-4-5-6-1の後、三羽根を1-e-5-d-3-f-1で4+4+2周。最後に4点交差へ松葉。',source:'https://www.temarikai.com/PatternsPages/C8Pg2/SSh01.html',steps};
   }
 
   function patternGT24(){
     const steps=[];const starCols=['#bf858e','#8fa783','#839db0','#fde047'];
     // Outline all pentagons first.
-    for(let vi=0;vi<ico.length;vi++){const p=orderedPentagonAtVertex(vi);steps.push(pathStep([...p,p[0]],'#667b9a',`GT24：外形pentagon ${vi+1}/12`,'原典どおり、まずC10のmarked pentagonを外形として順に取ります。',.82));}
-    // Hoshi in each pentagon, path 1-3-5-2-4-1, sakasa-style normalized by working progressively inward.
+    for(let vi=0;vi<ico.length;vi++){const p=orderedPentagonAtVertex(vi);steps.push(pathStep([...p,p[0]],'#667b9a',`GT24：外形五角形 ${vi+1}/12`,'原典どおり、まず10等分の組み合わせ地割りにできる五角形を外形として順に取ります。',.82));}
+    // Hoshi in each pentagon, path 1-3-5-2-4-1, 下掛け-style normalized by working progressively inward.
     for(let vi=0;vi<ico.length;vi++){
-      const c=ico[vi];for(let r=0;r<4;r++){const base=regularLocal(c,5,.62-r*.075,-Math.PI/2,.48);const order=[0,2,4,1,3,0],pts=order.map(i=>base[i]);const labs=base.map((p,i)=>makeLabel(p,String(i+1)));steps.push(pathStep(pts,starCols[r],`GT24 pentagon ${vi+1}：星 第${r+1}周 1→3→5→2→4→1`,'Hoshi Kagariの指定順序を保ち、sakasaとして外側から内側へ重ねます。',.92,labs));}
+      const c=ico[vi];for(let r=0;r<4;r++){const base=regularLocal(c,5,.62-r*.075,-Math.PI/2,.48);const order=[0,2,4,1,3,0],pts=order.map(i=>base[i]);const labs=base.map((p,i)=>makeLabel(p,String(i+1)));steps.push(pathStep(pts,starCols[r],`GT24 五角形 ${vi+1}：星 第${r+1}周 1→3→5→2→4→1`,'星かがりの指定順序を保ち、下掛けとして外側から内側へ重ねます。',.92,labs));}
     }
-    return{category:'TemariKai 原典トレース',name:'GT24 — C10 Pentagon＋Hoshi Kagari',division:'c10',fidelity:'explicit',intro:'12個のpentagon外形を先に取り、その後各pentagon内を星かがり 1→3→5→2→4→1 で3〜5周という原典指示に合わせ、表示では4周に正規化。',source:'https://www.temarikai.com/PatternsPages/C10/GT24.html',steps};
+    return{category:'TemariKai 原典トレース',name:'GT24 — 10等分組み合わせ地割り・五角形＋星かがり',division:'c10',fidelity:'explicit',intro:'12個の五角形外形を先に取り、その後各五角形内を星かがり 1→3→5→2→4→1 で3〜5周という原典指示に合わせ、表示では4周に正規化。',source:'https://www.temarikai.com/PatternsPages/C10/GT24.html',steps};
   }
 
   function sh01Hemisphere(center,colorBase,hemiName){
@@ -968,7 +1082,7 @@
         labels.push(makeLabel(pts[0],`${wi*3+1}/L`),makeLabel(pts[1],`${wi*3+2}/M`),makeLabel(pts[2],`${wi*3+3}/R`));
       }
       continuous.push(continuous[0]);
-      steps.push(pathStep(continuous,col,`SH01 ${hemiName} Round ${round+1}：Wing1→2→3`,'各wingでL→M→Rの3ステッチを左から右へ取り、中心を横切って次のwingへ進みます。3つ目から開始点の下へ戻します。',1.35,labels));
+      steps.push(pathStep(continuous,col,`SH01 ${hemiName} Round ${round+1}：羽根1→2→3`,'各wingでL→M→Rの3ステッチを左から右へ取り、中心を横切って次のwingへ進みます。3つ目から開始点の下へ戻します。',1.35,labels));
     }
     return steps;
   }
@@ -976,21 +1090,21 @@
     const steps=[...sh01Hemisphere(V(0,0,1),145,'East'),...sh01Hemisphere(V(0,0,-1),315,'West')];
     // finishing starbursts in the two central triangles
     for(const c of [V(0,0,1),V(0,0,-1)])for(const pair of matsubaAt(c,24,.28,.38))steps.push(pathStep(pair,'#b99b61','SH01：中央triangle 24分 star-burst','仕上げとして中心triangleに金糸の放射線を増やし、24分のstar-burstを作ります。',.16));
-    return{category:'TemariKai 原典トレース',name:'SH01 — C10 3 Wings / East・West',division:'c10',fidelity:'explicit',intro:'高度なC10図案。East hemisphereでWing1のL-M-R→中心横断→Wing2 L-M-R→Wing3 L-M-R→開始点へ戻る9ステッチを10周。Westも独立して同じ順序で行います。',source:'https://www.temarikai.com/PatternsPages/C10/SH01.html',steps};
+    return{category:'TemariKai 原典トレース',name:'SH01 — 10等分組み合わせ地割り・3つの羽根',division:'c10',fidelity:'explicit',intro:'10等分の組み合わせ地割りを使う図案。東側半球で羽根1のL-M-R→中心横断→羽根2 L-M-R→羽根3 L-M-R→開始点へ戻る9ステッチを10周。西側も独立して同じ順序で行います。',source:'https://www.temarikai.com/PatternsPages/C10/SH01.html',steps};
   }
 
   function patternSC02(){
     const steps=[];const spindleColors=['#829faa','#9990ae','#bd838e','#8fa58c'];
     // Simple 10 spindles, odd number of rounds; source example 11 rounds.
     for(let line=0;line<10;line++)for(let r=0;r<11;r++){
-      const lon=line*36,ctrl=simpleSpindle(lon,45,-45,1.15,r);steps.push(pathStep(ctrl,spindleColors[r%spindleColors.length],`SC02 spindle 線${line+1}：${r+1}/11`,'Simple 10各地割り線で、北半球1/2点と南半球1/2点を端にspindleを作ります。原典例の11周（奇数）で表示。',.45));
+      const lon=line*36,ctrl=simpleSpindle(lon,45,-45,1.15,r);steps.push(pathStep(ctrl,spindleColors[r%spindleColors.length],`SC02 紡錘形 線${line+1}：${r+1}/11`,'10等分の各地割り線で、北半球1/2点と南半球1/2点を端にspindleを作ります。原典例の11周（奇数）で表示。',.45));
     }
-    // Obi: center two threads, then under increasing numbers 2,6,10,14,18,22 (normalized for 22-thread spindle)
+    // Obi: center two threads, then 下を通す本数 increasing numbers 2,6,10,14,18,22 (normalized for 22-thread spindle)
     const underCounts=[0,2,6,10,14,18,22];
-    for(const side of [1,-1])for(let i=0;i<underCounts.length;i++){const lat=side*(1.5+i*1.2);steps.push(rawStep(latitudeRing(lat),'#57514b',`SC02 obi ${side>0?'北':'南'}側：under ${underCounts[i]}`,(i===0?'まず全spindleの上にdouble threadを一周。':`次の一周は各spindleで中心から合計${underCounts[i]}本をくぐるように織ります。`),.65));}
+    for(const side of [1,-1])for(let i=0;i<underCounts.length;i++){const lat=side*(1.5+i*1.2);steps.push(rawStep(latitudeRing(lat),'#57514b',`SC02 帯 ${side>0?'北':'南'}側：下を通す本数 ${underCounts[i]}`,(i===0?'まず全紡錘形の上にdouble threadを一周。':`次の一周は各紡錘形で中心から合計${underCounts[i]}本をくぐるように織ります。`),.65));}
     // optional metallic lines across poles
     for(let line=0;line<10;line++)steps.push(pathStep([sph(5,line*36),sph(89,line*36),sph(5,(line+5)*36)],'#b99b61','SC02：仕上げ金線','各diamondの端から極を越えて反対側diamondへ金線を渡す仕上げ例です。',.38));
-    return{category:'TemariKai 原典トレース',name:'SC02 — Simple 10 Spindles＋織りObi',division:'simple10',fidelity:'explicit',intro:'10本のspindleを同じ奇数周で作り、赤道のobiを「全体の上→中心2本の下→6本→10本…→全糸の下」と段階的に織る原典工程を表示。',source:'https://www.temarikai.com/PatternsPages/Simple/SC02.html',steps};
+    return{category:'TemariKai 原典トレース',name:'SC02 — 10等分・紡錘形＋織り帯',division:'simple10',fidelity:'explicit',intro:'10本の紡錘形を同じ奇数周で作り、赤道の帯を「全体の上→中心2本の下→6本→10本…→全糸の下」と段階的に織る原典工程を表示。',source:'https://www.temarikai.com/PatternsPages/Simple/SC02.html',steps};
   }
 
   const patterns={
@@ -1002,48 +1116,57 @@
   // Every page that materially informed the sequence, division, or named stitch used by this app.
   // Primary pattern pages are stored in each pattern's `source`; related technique/division pages are listed here.
   const referenceExtras={
-    yaegiku:[],
+    yaegiku:[
+      ['TemariKai — GT14 基本の菊／上掛け千鳥','https://www.temarikai.com/PatternsPages/Simple/GT14.html'],
+      ['TemariKai — 8等分の地割り線の置き方','https://www.temarikai.com/HowToPages/simpledivision2.html'],
+      ['TemariKai — 上掛け千鳥・菊かがり','https://www.temarikai.com/HowToPages/uwagakekiku.html'],
+      ['TemariKai — 尖端を伸ばす方法','https://www.temarikai.com/HowToPages/stretchpoints.html']
+    ],
     kotenkiku:[],
-    asanoha:[],
+    asanoha:[
+      ['てまり-ねこ — #37 YouTube 手まり「8等分の麻の葉」の作り方','https://www.youtube.com/watch?v=hU7ZvskaHqA'],
+      ['TemariKai — Asa-no-ha / 麻の葉の幾何とPoint X','https://www.temarikai.com/HowToPages/asanoha.html'],
+      ['TemariKai — 8等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/8combinationdiv.html']
+    ],
     masu:[],
     gt14:[
-      ['Simple Division / 地割り','https://www.temarikai.com/HowToPages/simpledivision.html'],
-      ['Uwagake Chidori & Kiku','https://www.temarikai.com/HowToPages/uwagakekiku.html'],
-      ['Uwagake Chidori Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html'],
-      ['Stretch Points','https://www.temarikai.com/HowToPages/stretchpoints.html']
+      ['等分地割り／地割り線','https://www.temarikai.com/HowToPages/simpledivision.html'],
+      ['上掛け千鳥と菊かがり','https://www.temarikai.com/HowToPages/uwagakekiku.html'],
+      ['上掛け千鳥かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html'],
+      ['尖端を伸ばす方法','https://www.temarikai.com/HowToPages/stretchpoints.html']
     ],
     gt02:[
-      ['Simple Division / 地割り','https://www.temarikai.com/HowToPages/simpledivision.html'],
-      ['Tsumu Kagari / Spindle — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/tsumu.html'],
-      ['Sakasa Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/sakasa.html'],
-      ['Uwagake Chidori Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html']
+      ['等分地割り／地割り線','https://www.temarikai.com/HowToPages/simpledivision.html'],
+      ['紡錘形かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/tsumu.html'],
+      ['下掛けかがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/下掛け.html'],
+      ['上掛け千鳥かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html']
     ],
     gt73:[
-      ['Simple Division / 地割り','https://www.temarikai.com/HowToPages/simpledivision.html'],
-      ['Kousa Style / 交差かがり','https://www.temarikai.com/HowToPages/kousastylehelp.html'],
-      ['Uwagake Chidori Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html'],
-      ['Matsuba Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/matsuba.html']
+      ['等分地割り／地割り線','https://www.temarikai.com/HowToPages/simpledivision.html'],
+      ['交差かがり','https://www.temarikai.com/HowToPages/kousastylehelp.html'],
+      ['上掛け千鳥かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html'],
+      ['松葉かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/matsuba.html']
     ],
     gt21:[
-      ['8-Combination Division / C8','https://www.temarikai.com/HowToPages/8combinationdiv.html']
+      ['8等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/8combinationdiv.html']
     ],
     ssh01:[
-      ['8-Combination Division / C8','https://www.temarikai.com/HowToPages/8combinationdiv.html'],
-      ['Mitsubane Kikkou — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/mitsubanekikkou.html'],
-      ['Matsuba Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/matsuba.html']
+      ['8等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/8combinationdiv.html'],
+      ['三羽根亀甲 — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/mitsubanekikkou.html'],
+      ['松葉かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/matsuba.html']
     ],
     gt24:[
-      ['10-Combination Division / C10','https://www.temarikai.com/HowToPages/10combinationdiv.html'],
-      ['Hoshi Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/hoshi.html'],
-      ['Sakasa Kagari — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/sakasa.html']
+      ['10等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/10combinationdiv.html'],
+      ['星かがり — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/hoshi.html'],
+      ['下掛けかがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/下掛け.html']
     ],
     sh01:[
-      ['10-Combination Division / C10','https://www.temarikai.com/HowToPages/10combinationdiv.html']
+      ['10等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/10combinationdiv.html']
     ],
     sc02:[
-      ['Simple Division / 地割り','https://www.temarikai.com/HowToPages/simpledivision.html'],
-      ['Tsumu Kagari / Spindle — ToolKit','https://www.temarikai.com/HowToPages/ToolKit/tsumu.html'],
-      ['Stretch Points','https://www.temarikai.com/HowToPages/stretchpoints.html']
+      ['等分地割り／地割り線','https://www.temarikai.com/HowToPages/simpledivision.html'],
+      ['紡錘形かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/tsumu.html'],
+      ['尖端を伸ばす方法','https://www.temarikai.com/HowToPages/stretchpoints.html']
     ]
   };
   const globalReferences=[
@@ -1052,7 +1175,7 @@
     ['Maito Design Works — 草木染めの色辞典','https://maitokomuro.com/iroziten/']
   ];
   const primaryReferenceLabels={
-    yaegiku:'讃岐かがり手まり — 八重菊',
+    yaegiku:'TemariKai — GT14 基本の菊／上掛け千鳥',
     kotenkiku:'オリムパス — 古典菊',
     asanoha:'てまり-ねこ — 8等分の麻の葉',
     masu:'フジックス — 巻きかがり桝',
@@ -1061,9 +1184,9 @@
     sh01:'TemariKai — SH01 pattern',sc02:'TemariKai — SC02 pattern'
   };
   function divisionReferences(type){
-    if(type==='c8')return [['TemariKai — C8 combination division / 地割り','https://www.temarikai.com/HowToPages/8combinationdiv.html'],['TemariKai — Simple division marking lines','https://www.temarikai.com/HowToPages/simpledivision2.html']];
-    if(type==='c10')return [['TemariKai — C10 combination division','https://www.temarikai.com/HowToPages/10combinationdiv.html'],['TemariKai — C10 marking-line order','https://www.temarikai.com/HowToPages/10combinationdiv2.html'],['TemariKai — Simple division marking lines','https://www.temarikai.com/HowToPages/simpledivision2.html']];
-    return [['TemariKai — Simple division marking lines','https://www.temarikai.com/HowToPages/simpledivision2.html']];
+    if(type==='c8')return [['TemariKai — 8等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/8combinationdiv.html'],['TemariKai — 等分地割りの地割り線','https://www.temarikai.com/HowToPages/simpledivision2.html']];
+    if(type==='c10')return [['TemariKai — 10等分の組み合わせ地割り','https://www.temarikai.com/HowToPages/10combinationdiv.html'],['TemariKai — 10等分組み合わせ地割りの順序','https://www.temarikai.com/HowToPages/10combinationdiv2.html'],['TemariKai — 等分地割りの地割り線','https://www.temarikai.com/HowToPages/simpledivision2.html']];
+    return [['TemariKai — 等分地割りの地割り線','https://www.temarikai.com/HowToPages/simpledivision2.html']];
   }
   function referencesFor(key){
     const p=patterns[key],raw=[[primaryReferenceLabels[key]||'図案・公開手順ページ',p.source],...divisionReferences(p.division),...(referenceExtras[key]||[])],seen=new Set();
@@ -1581,7 +1704,7 @@
     }
     addProceduralHairiness(s,c,w,a,p,D,parts);
     // Within a single yarn cross-section, fibre visibility legitimately changes with view angle.
-    // This sort is local to the yarn's own fibres and does not change stitch-over/stitch-under order.
+    // This sort is local to the yarn's own fibres and does not change stitch-over/stitch-下を通す本数 order.
     parts.sort((x,y)=>x.depth-y.depth);
     for(const f of parts)strokeOne(f.seg,f.color,f.width,f.alpha,{cap:'butt'});
   }
@@ -1618,7 +1741,7 @@
   function drawSegments(segs){
     // Important: preserve construction order. Sorting all front-facing segments by camera depth
     // made differently coloured crossing threads swap apparent colour when the viewer rotated.
-    // In a real temari, over/under order is a property of the stitch, not of the camera.
+    // In a real temari, over/下を通す本数 order is a property of the stitch, not of the camera.
     for(const s of segs){if(s.kind==='division'){strokeOne(s,state.divisionColor,s.width,s.alpha)}else if(s.kind==='guide'||s.kind==='ghost'){strokeOne(s,s.color,s.width,s.alpha)}else drawThreadSegment(s)}
     ctx.setLineDash([]);ctx.globalAlpha=1;ctx.shadowBlur=0
   }
@@ -1679,7 +1802,7 @@
     if(!step)return 'surface';
     const txt=((step.title||'')+' '+(step.text||'')).toLowerCase();
     if(step.kind==='division')return 'under';
-    if(/sakasa|下掛|下側|下を通|under/.test(txt))return 'under';
+    if(/下掛け|下掛|下側|下を通|under/.test(txt))return 'under';
     if(/uwagake|上掛|前の糸を越|上側|越えて|over/.test(txt))return 'over';
     return 'surface';
   }
@@ -1982,7 +2105,13 @@
     const h=document.createElement('h3');h.textContent='TemariKai indexes';allReferencesList.appendChild(h);
     for(const [label,url] of globalReferences){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a)}
   }
-  function refreshMeta(){const p=currentPattern();patternIntro.textContent=p.intro;renderSourceLinks();fidelityBadge.textContent=p.fidelity==='explicit'?'順序：原典に明記':'順序：公開情報範囲';fidelityBadge.className='badge '+(p.fidelity==='explicit'?'explicit':'public');divisionBadge.textContent=`地割り：${p.division.toUpperCase()}`;}
+  function divisionJapaneseName(type){
+    if(type==='c8')return '8等分の組み合わせ地割り';
+    if(type==='c10')return '10等分の組み合わせ地割り';
+    if(type&&type.startsWith('simple')){const n=parseInt(type.replace('simple',''),10)||8;return `${n}等分`;}
+    return '地割り';
+  }
+  function refreshMeta(){const p=currentPattern();patternIntro.textContent=p.intro;renderSourceLinks();fidelityBadge.textContent=p.fidelity==='explicit'?'順序：原典に明記':'順序：公開情報範囲';fidelityBadge.className='badge '+(p.fidelity==='explicit'?'explicit':'public');divisionBadge.textContent=`地割り：${divisionJapaneseName(p.division)}`;}
   function sequence(){return currentPattern().allSteps}
   function currentPhase(){const seq=sequence();if(state.stepIndex>=seq.length)return 3;return (seq[state.stepIndex]&&seq[state.stepIndex].phase)||3}
   function buildTimelineTicks(){
@@ -1998,7 +2127,7 @@
     timelineRange.max=String(total*1000);
   }
   function syncTimeline(){const p=currentPattern(),total=p.allSteps.length,pos=Math.min(total,state.stepIndex+state.stepProgress),pct=total?pos/total*100:0,ph=currentPhase();progressBar.style.width=pct+'%';timelineRange.value=String(Math.round(pos*1000));const shown=state.stepIndex>=total?total:(state.stepIndex+1);timelinePosition.textContent=`PHASE ${ph} · STEP ${shown} / ${total} · ${pct.toFixed(1)}%`;phaseButtons.forEach(b=>b.classList.toggle('active',Number(b.dataset.phase)===ph));}
-  function updateUI(){const p=currentPattern(),seq=p.allSteps;if(state.stepIndex>=seq.length){stepTitle.textContent=`${p.name}：完成`;stepText.textContent=`①手まり芯、②${p.division.toUpperCase()}地割り、③かがりの全${seq.length}工程が終わりました。`;syncTimeline();return}const s=seq[state.stepIndex],phaseName=s.phase===1?'① 手まり芯':s.phase===2?'② 地割り':'③ かがり';stepTitle.textContent=`${phaseName}｜${state.stepIndex+1} / ${seq.length}｜${s.title}`;stepText.textContent=s.text;syncTimeline();}
+  function updateUI(){const p=currentPattern(),seq=p.allSteps;if(state.stepIndex>=seq.length){stepTitle.textContent=`${p.name}：完成`;stepText.textContent=`①手まり芯、②${divisionJapaneseName(p.division)}、③かがりの全${seq.length}工程が終わりました。`;syncTimeline();return}const s=seq[state.stepIndex],phaseName=s.phase===1?'① 手まり芯':s.phase===2?'② 地割り':'③ かがり';stepTitle.textContent=`${phaseName}｜${state.stepIndex+1} / ${seq.length}｜${s.title}`;stepText.textContent=s.text;syncTimeline();}
   function rebuildFinished(){finished.length=0;const seq=sequence();for(let i=0;i<state.stepIndex;i++)finished.push(seq[i])}
   function reset(){state.playing=false;state.stepIndex=0;state.stepProgress=0;finished.length=0;updateUI()}
   function loadPattern(k){state.key=k;ensureCustomThreadColors(k);if(state.threadColor==='custom'){ensureCustomThreadRenders(k);ensureCustomThreadWidths(k);renderThreadPalette()}updateThreadControlState();reset();refreshMeta();buildTimelineTicks();syncTimeline()}
