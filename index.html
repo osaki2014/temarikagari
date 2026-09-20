@@ -273,11 +273,22 @@
   #threadPaletteDetails summary::after{content:" +";color:#aaa}
   #threadPaletteDetails[open] summary::after{content:" −"}
   #threadPaletteGrid{display:grid;grid-template-columns:1fr;gap:7px;margin-top:9px}
-  .thread-palette-item{display:grid;grid-template-columns:auto 34px minmax(92px,auto) minmax(86px,auto);gap:7px 8px;align-items:center;min-width:0;padding-bottom:7px;border-bottom:1px solid #f0f0f0}
+  .thread-palette-item{display:grid;grid-template-columns:auto 34px minmax(92px,auto) minmax(120px,1fr) minmax(86px,auto);gap:7px 8px;align-items:center;min-width:0;padding-bottom:9px;border-bottom:1px solid #f0f0f0}
   .thread-palette-item input[type="color"]{width:30px;height:18px;padding:0;border:0;background:transparent}
   .thread-palette-item select{min-width:86px;max-width:116px;font-size:9px;padding:3px 16px 3px 5px}
   .thread-palette-index{font-family:"Times New Roman",Times,serif;font-size:9px;letter-spacing:.08em;color:#777;white-space:nowrap}
   .thread-palette-label{grid-column:1 / -1;font-size:9px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .thread-width-box{display:flex;align-items:center;gap:6px;min-width:116px}
+  .thread-width-box input[type="range"]{width:82px;min-width:60px}
+  .thread-width-value{min-width:30px;font-family:"Times New Roman",Times,serif;font-size:9px;color:#777;letter-spacing:.03em}
+  .common-thread-setting{transition:opacity .18s ease,filter .18s ease}
+  .common-thread-setting.inactive{opacity:.25;filter:grayscale(1)}
+  .common-thread-setting.inactive label,.common-thread-setting.inactive .color-value{color:#b7b7b7}
+  .common-thread-setting.inactive select,.common-thread-setting.inactive input{cursor:not-allowed}
+  #commonDisabledNotice{display:none;margin:7px 0 2px;padding:7px 9px;border-left:2px solid #b9b9b9;background:#fafafa;color:#888;font-size:9px;line-height:1.55;letter-spacing:.03em}
+  #commonDisabledNotice.visible{display:block}
+  .width-row input[type="range"]{width:150px}
+  .width-value{font-family:"Times New Roman",Times,serif;font-size:10px;color:#666;min-width:36px}
   .dye-palette-btn{font-size:9px;padding:3px 5px;min-height:22px;border-bottom:1px solid #aaa;white-space:nowrap;text-align:left}
   .dye-selected-link{grid-column:1 / -1;font-size:9px;color:#777;text-decoration:none;border-bottom:1px solid #ddd;width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #dyeDialog{width:min(780px,calc(100vw - 44px));max-height:82vh;border:1px solid #d5d5d5;background:#fff;padding:28px 30px 32px;color:#333;box-shadow:none}
@@ -297,7 +308,7 @@
   .dye-source-footer{margin-top:14px;font-size:9px;color:#999;line-height:1.6}
   .dye-source-footer a{color:#666;text-decoration:none;border-bottom:1px solid #bbb}
   @media(max-width:900px){#dyePaletteGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:520px){#dyePaletteGrid{grid-template-columns:1fr}.thread-palette-item{grid-template-columns:auto 34px 1fr}}
+  @media(max-width:520px){#dyePaletteGrid{grid-template-columns:1fr}.thread-palette-item{grid-template-columns:auto 34px 1fr}.thread-width-box{grid-column:1 / -1}.dye-palette-btn{grid-column:1 / -1}}
   .needle-note{font-size:10px;color:#999;line-height:1.75;margin-top:7px}
   @media(max-width:980px){
     #viewerTimeline{left:28px;right:28px;bottom:18px;background:rgba(255,255,255,.96)}
@@ -373,7 +384,7 @@
       <div class="row color-row">
         <span class="color-chip"><label for="divisionColor">② 地割り糸の色</label><input id="divisionColor" type="color" value="#b5a878"><span id="divisionColorValue" class="color-value">#B5A878</span></span>
       </div>
-      <div class="row color-row">
+      <div id="commonBaseColorRow" class="row color-row common-thread-setting">
         <span class="color-chip"><label for="threadBaseColor">③ かがり糸の基本色</label><input id="threadBaseColor" type="color" value="#a66f79"><span id="threadBaseColorValue" class="color-value">#A66F79</span></span>
       </div>
       <div class="row">
@@ -390,20 +401,26 @@
         <summary>かがり糸を個別指定</summary>
         <div id="threadPaletteGrid"></div>
       </details>
-      <div class="row">
-        <label for="threadRenderMode">線種</label>
+      <div id="commonRenderRow" class="row common-thread-setting">
+        <label for="threadRenderMode">共通の線種</label>
         <select id="threadRenderMode">
           <option value="flat">細線</option>
           <option value="round">丸断面 3D糸</option>
           <option value="texture">繊維テクスチャ</option>
         </select>
       </div>
+      <div id="commonWidthRow" class="row width-row common-thread-setting">
+        <label for="threadWidthRange">共通の糸の太さ</label>
+        <input id="threadWidthRange" type="range" min="0.4" max="3.0" step="0.1" value="1.0">
+        <span id="threadWidthValue" class="width-value">1.0×</span>
+      </div>
+      <div id="commonDisabledNotice">個別設定中です。上の「基本色」「共通の線種」「共通の糸の太さ」は使用されません。各糸の設定を変更してください。</div>
       <div id="textureRow" class="row" hidden>
         <input id="yarnTextureInput" type="file" accept="image/*">
         <button id="texturePickBtn" type="button">糸表面画像を選ぶ</button>
         <span id="textureStatus">画像未指定：内蔵の繊維テクスチャを使用</span>
       </div>
-      <p class="setting-help">①芯の色、②地割り糸、③かがり糸を個別に設定できます。「基本色を使用」を選ぶと、全かがりを選択した基本色で表示します。線種は色とは独立して切り替えられます。</p>
+      <p class="setting-help">①芯の色、②地割り糸、③かがり糸を個別に設定できます。通常は共通の線種・太さが全かがり糸に適用されます。「糸色を個別指定」では、各糸ごとに色・線種・太さを独立して設定できます。</p>
     </div>
 
     <div id="stepBox">
@@ -451,7 +468,7 @@
   const speedRange=document.getElementById('speedRange'),speedValue=document.getElementById('speedValue'),guideToggle=document.getElementById('guideToggle'),labelToggle=document.getElementById('labelToggle'),ghostToggle=document.getElementById('ghostToggle'),needleToggle=document.getElementById('needleToggle');
   const needleStatus=document.getElementById('needleStatus'),needleRelation=document.getElementById('needleRelation');
   const coreColor=document.getElementById('coreColor'),divisionColor=document.getElementById('divisionColor'),threadBaseColor=document.getElementById('threadBaseColor'),coreColorValue=document.getElementById('coreColorValue'),divisionColorValue=document.getElementById('divisionColorValue'),threadBaseColorValue=document.getElementById('threadBaseColorValue');
-  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus'),threadPaletteDetails=document.getElementById('threadPaletteDetails'),threadPaletteGrid=document.getElementById('threadPaletteGrid');
+  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),threadWidthRange=document.getElementById('threadWidthRange'),threadWidthValue=document.getElementById('threadWidthValue'),commonBaseColorRow=document.getElementById('commonBaseColorRow'),commonRenderRow=document.getElementById('commonRenderRow'),commonWidthRow=document.getElementById('commonWidthRow'),commonDisabledNotice=document.getElementById('commonDisabledNotice'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus'),threadPaletteDetails=document.getElementById('threadPaletteDetails'),threadPaletteGrid=document.getElementById('threadPaletteGrid');
   const phaseButtons=[...document.querySelectorAll('.phase-jump')];
   const stepTitle=document.getElementById('stepTitle'),stepText=document.getElementById('stepText'),progressBar=document.getElementById('progressBar'),timelineRange=document.getElementById('timelineRange'),timelineTicks=document.getElementById('timelineTicks'),timelinePosition=document.getElementById('timelinePosition'),patternIntro=document.getElementById('patternIntro'),sourceLinks=document.getElementById('sourceLinks'),fidelityBadge=document.getElementById('fidelityBadge'),divisionBadge=document.getElementById('divisionBadge');
   const panelToggle=document.getElementById('panelToggle'),panelToggleText=document.getElementById('panelToggleText'),pointHelpBtn=document.getElementById('pointHelpBtn'),pointHelpPopover=document.getElementById('pointHelpPopover'),pointHelpClose=document.getElementById('pointHelpClose');
@@ -860,7 +877,7 @@
   function populateSelect(){patternSelect.innerHTML='';let last='';for(const key of order){const p=patterns[key];if(p.category!==last){const g=document.createElement('optgroup');g.label=p.category;g.dataset.category=p.category;patternSelect.appendChild(g);last=p.category;}const g=[...patternSelect.children].find(x=>x.dataset.category===p.category);const o=document.createElement('option');o.value=key;o.textContent=p.name;g.appendChild(o);}}
   populateSelect();
 
-  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.15,showGuides:true,showLabels:true,showNeedle:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',customThreadColors:{},customThreadRenders:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
+  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.15,showGuides:true,showLabels:true,showNeedle:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',threadWidth:1.0,customThreadColors:{},customThreadRenders:{},customThreadWidths:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
   patternSelect.value=state.key;const finished=[];
 
   function rotate(p){let{x,y,z}=p;const cy=Math.cos(state.ry),sy=Math.sin(state.ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(state.rx),sx=Math.sin(state.rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];return V(x,y,z)}
@@ -921,8 +938,16 @@
   }
   function ensureCustomThreadRenders(key=state.key){
     if(!state.customThreadRenders[key])state.customThreadRenders[key]={};
-    for(const item of originalThreadColorsFor(key))if(!state.customThreadRenders[key][item.key])state.customThreadRenders[key][item.key]='inherit';
+    for(const item of originalThreadColorsFor(key)){
+      const cur=state.customThreadRenders[key][item.key];
+      if(!cur||cur==='inherit')state.customThreadRenders[key][item.key]=state.threadRender;
+    }
     return state.customThreadRenders[key];
+  }
+  function ensureCustomThreadWidths(key=state.key){
+    if(!state.customThreadWidths[key])state.customThreadWidths[key]={};
+    for(const item of originalThreadColorsFor(key))if(!(item.key in state.customThreadWidths[key]))state.customThreadWidths[key][item.key]=state.threadWidth;
+    return state.customThreadWidths[key];
   }
   function ensureCustomThreadDyes(key=state.key){if(!state.customThreadDyes[key])state.customThreadDyes[key]={};return state.customThreadDyes[key]}
   function openDyePalette(key,input){activeDyeTarget={key,input};dyeSearch.value='';renderDyePalette();if(typeof dyeDialog.showModal==='function')dyeDialog.showModal();else dyeDialog.setAttribute('open','')}
@@ -939,16 +964,22 @@
     }
   }
   function renderThreadPalette(){
-    const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
+    const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),widths=ensureCustomThreadWidths(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
     items.forEach((item,i)=>{
       const row=document.createElement('div');row.className='thread-palette-item';
       const idx=document.createElement('span');idx.className='thread-palette-index';idx.textContent=`糸色 ${i+1}`;
       const input=document.createElement('input');input.type='color';input.value=map[item.key]||item.color;input.setAttribute('aria-label',`糸色 ${i+1}`);
-      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['inherit','共通線種'],['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||'inherit';
+      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||state.threadRender;
+      const widthBox=document.createElement('span');widthBox.className='thread-width-box';
+      const widthInput=document.createElement('input');widthInput.type='range';widthInput.min='0.4';widthInput.max='3.0';widthInput.step='0.1';widthInput.value=String(widths[item.key]??state.threadWidth);widthInput.setAttribute('aria-label',`糸色 ${i+1} の太さ`);
+      const widthValue=document.createElement('span');widthValue.className='thread-width-value';widthValue.textContent=`${Number(widthInput.value).toFixed(1)}×`;widthBox.append(widthInput,widthValue);
       const dyeBtn=document.createElement('button');dyeBtn.type='button';dyeBtn.className='dye-palette-btn';dyeBtn.textContent='草木染め色辞典';
       const lab=document.createElement('span');lab.className='thread-palette-label';lab.textContent=item.title;lab.title=item.title;
-      input.addEventListener('input',()=>{map[item.key]=input.value;delete dyes[item.key];renderThreadPalette()});renderSel.addEventListener('change',()=>{renders[item.key]=renderSel.value});dyeBtn.addEventListener('click',()=>openDyePalette(item.key,input));
-      row.append(idx,input,renderSel,dyeBtn,lab);
+      input.addEventListener('input',()=>{map[item.key]=input.value;delete dyes[item.key];renderThreadPalette()});
+      renderSel.addEventListener('change',()=>{renders[item.key]=renderSel.value;updateThreadControlState()});
+      widthInput.addEventListener('input',()=>{widths[item.key]=parseFloat(widthInput.value);widthValue.textContent=`${Number(widthInput.value).toFixed(1)}×`});
+      dyeBtn.addEventListener('click',()=>openDyePalette(item.key,input));
+      row.append(idx,input,renderSel,widthBox,dyeBtn,lab);
       if(dyes[item.key]){const c=dyes[item.key],a=document.createElement('a');a.className='dye-selected-link';a.href=c.url;a.target='_blank';a.rel='noopener';a.textContent=`${c.name}｜${c.dye} ↗`;row.appendChild(a)}
       threadPaletteGrid.appendChild(row);
     });
@@ -961,8 +992,12 @@
     return source;
   }
   function threadRenderFor(source){
-    if(state.threadColor==='custom'){const map=ensureCustomThreadRenders(state.key),v=map[normalizeColorKey(source)];if(v&&v!=='inherit')return v}
+    if(state.threadColor==='custom'){const map=ensureCustomThreadRenders(state.key),v=map[normalizeColorKey(source)];if(v)return v}
     return state.threadRender;
+  }
+  function threadWidthFor(source){
+    if(state.threadColor==='custom'){const map=ensureCustomThreadWidths(state.key),v=Number(map[normalizeColorKey(source)]);if(Number.isFinite(v))return v}
+    return state.threadWidth;
   }
 
 
@@ -976,7 +1011,7 @@
     ctx.stroke();ctx.restore();
   }
   function drawThreadSegment(s){
-    const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale,c=threadColorFor(s.color),a=s.alpha;
+    const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale*threadWidthFor(s.color),c=threadColorFor(s.color),a=s.alpha;
     const renderMode=threadRenderFor(s.color);
     if(renderMode==='round'){
       strokeOne(s,'rgba(25,25,25,.72)',w+2.0,a*.34);
@@ -1216,7 +1251,7 @@
   function updateUI(){const p=currentPattern(),seq=p.allSteps;if(state.stepIndex>=seq.length){stepTitle.textContent=`${p.name}：完成`;stepText.textContent=`①手まり芯、②${p.division.toUpperCase()}地割り、③かがりの全${seq.length}工程が終わりました。`;syncTimeline();return}const s=seq[state.stepIndex],phaseName=s.phase===1?'① 手まり芯':s.phase===2?'② 地割り':'③ かがり';stepTitle.textContent=`${phaseName}｜${state.stepIndex+1} / ${seq.length}｜${s.title}`;stepText.textContent=s.text;syncTimeline();}
   function rebuildFinished(){finished.length=0;const seq=sequence();for(let i=0;i<state.stepIndex;i++)finished.push(seq[i])}
   function reset(){state.playing=false;state.stepIndex=0;state.stepProgress=0;finished.length=0;updateUI()}
-  function loadPattern(k){state.key=k;ensureCustomThreadColors(k);renderThreadPalette();reset();refreshMeta();buildTimelineTicks();syncTimeline()}
+  function loadPattern(k){state.key=k;ensureCustomThreadColors(k);if(state.threadColor==='custom'){ensureCustomThreadRenders(k);ensureCustomThreadWidths(k);renderThreadPalette()}updateThreadControlState();reset();refreshMeta();buildTimelineTicks();syncTimeline()}
   function advance(){const seq=sequence();if(state.stepIndex<seq.length){finished.push(seq[state.stepIndex]);state.stepIndex++;state.stepProgress=0}if(state.stepIndex>=seq.length)state.playing=false;updateUI()}
   function back(){state.playing=false;if(state.stepProgress>.02){state.stepProgress=0}else if(state.stepIndex>0){state.stepIndex--;state.stepProgress=0;rebuildFinished()}updateUI()}
   function jumpToPhase(ph){const p=currentPattern(),idx=p.phaseStarts[ph]??0;state.playing=false;state.stepIndex=idx;state.stepProgress=0;rebuildFinished();updateUI()}
@@ -1246,8 +1281,24 @@
   speedRange.addEventListener('input',e=>{state.speed=parseFloat(e.target.value);speedValue.textContent=state.speed.toFixed(2)+'x'});guideToggle.addEventListener('change',e=>state.showGuides=e.target.checked);labelToggle.addEventListener('change',e=>state.showLabels=e.target.checked);needleToggle.addEventListener('change',e=>{state.showNeedle=e.target.checked;if(!state.showNeedle)needleStatus.hidden=true});ghostToggle.addEventListener('change',e=>state.ghost=e.target.checked);
   function bindColor(input,valueEl,key){const update=()=>{state[key]=input.value;valueEl.textContent=input.value.toUpperCase()};input.addEventListener('input',update);update()}
   bindColor(coreColor,coreColorValue,'coreColor');bindColor(divisionColor,divisionColorValue,'divisionColor');bindColor(threadBaseColor,threadBaseColorValue,'threadBaseColor');
-  threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;if(state.threadColor==='custom'){renderThreadPalette();threadPaletteDetails.open=true}});
-  threadRenderMode.addEventListener('change',e=>{state.threadRender=e.target.value;textureRow.hidden=e.target.value!=='texture'});
+  function updateThreadControlState(){
+    const custom=state.threadColor==='custom';
+    for(const el of [threadBaseColor,threadRenderMode,threadWidthRange])el.disabled=custom;
+    for(const row of [commonBaseColorRow,commonRenderRow,commonWidthRow])row.classList.toggle('inactive',custom);
+    commonDisabledNotice.classList.toggle('visible',custom);
+    threadPaletteDetails.style.opacity=custom?'1':'.45';
+    threadPaletteDetails.style.pointerEvents=custom?'auto':'none';
+    if(custom){
+      ensureCustomThreadRenders(state.key);ensureCustomThreadWidths(state.key);renderThreadPalette();threadPaletteDetails.open=true;
+    }else{
+      threadPaletteDetails.open=false;
+    }
+    const customHasTexture=custom&&Object.values(state.customThreadRenders[state.key]||{}).some(v=>v==='texture');
+    textureRow.hidden=!(state.threadRender==='texture'&&!custom)&&!customHasTexture;
+  }
+  threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;updateThreadControlState()});
+  threadRenderMode.addEventListener('change',e=>{state.threadRender=e.target.value;updateThreadControlState()});
+  threadWidthRange.addEventListener('input',e=>{state.threadWidth=parseFloat(e.target.value);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×'});
   texturePickBtn.addEventListener('click',()=>yarnTextureInput.click());
   yarnTextureInput.addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=160;c.height=32;const x=c.getContext('2d');const sc=Math.max(c.width/img.width,c.height/img.height),w=img.width*sc,h=img.height*sc;x.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);yarnPattern=ctx.createPattern(c,'repeat');textureStatus.textContent=`${file.name} を糸表面として使用`;URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)});
   timelineRange.addEventListener('input',e=>{state.playing=false;const total=sequence().length,pos=clamp(parseFloat(e.target.value)/1000,0,total);if(pos>=total){state.stepIndex=total;state.stepProgress=0}else{state.stepIndex=Math.floor(pos);state.stepProgress=pos-state.stepIndex}rebuildFinished();updateUI()});
@@ -1272,8 +1323,8 @@
     if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if(q.z>=.285&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
     requestAnimationFrame(frame);
   }
-  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
-  ensureCustomThreadColors(state.key);renderThreadPalette();refreshMeta();buildTimelineTicks();updateUI();requestAnimationFrame(frame);
+  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;threadWidthRange.value=String(state.threadWidth);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
+  ensureCustomThreadColors(state.key);updateThreadControlState();refreshMeta();buildTimelineTicks();updateUI();requestAnimationFrame(frame);
 })();
 </script>
 </body>
