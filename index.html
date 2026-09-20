@@ -382,6 +382,20 @@
       <label for="patternSelect">図案</label>
       <select id="patternSelect"></select>
     </div>
+    <div class="row">
+      <label for="displayModeSelect">表示モード</label>
+      <select id="displayModeSelect">
+        <option value="sphere">1. 通常の球体座標系</option>
+        <option value="plane">2. 平面座標系</option>
+        <option value="gore">3. 地割り分割の展開平面図</option>
+        <option value="ico3d">4. 正20面体の立体表示</option>
+        <option value="icoNet">5. 正20面体の展開平面図</option>
+        <option value="trunc3d">6. 切頂20面体の立体表示</option>
+        <option value="truncNet">7. 切頂20面体の展開平面図</option>
+      </select>
+      <button id="svgExportBtn" type="button">SVG出力</button>
+    </div>
+    <p class="small" id="displayModeHint">平面表示（2 / 3 / 5）ではSVG出力できます。</p>
     <div id="meta">
       <div class="row tight" style="margin-top:0"><span id="fidelityBadge" class="badge"></span><span id="divisionBadge" class="badge"></span></div>
       <p id="patternIntro"></p>
@@ -548,6 +562,7 @@
   const allRefsBtn=document.getElementById('allRefsBtn'),referencesDialog=document.getElementById('referencesDialog'),referencesClose=document.getElementById('referencesClose'),allReferencesList=document.getElementById('allReferencesList');
   const dyeDialog=document.getElementById('dyeDialog'),dyeDialogClose=document.getElementById('dyeDialogClose'),dyeSearch=document.getElementById('dyeSearch'),dyePaletteGrid=document.getElementById('dyePaletteGrid'),materialHelpDialog=document.getElementById('materialHelpDialog'),materialHelpClose=document.getElementById('materialHelpClose'),materialHelpTitle=document.getElementById('materialHelpTitle'),materialHelpBody=document.getElementById('materialHelpBody');
   const diameterCm=document.getElementById('diameterCm'),threadLengthSummary=document.getElementById('threadLengthSummary');
+  const displayModeSelect=document.getElementById('displayModeSelect'),svgExportBtn=document.getElementById('svgExportBtn'),displayModeHint=document.getElementById('displayModeHint');
 
   // ---------- vector / spherical utilities ----------
   const V=(x,y,z)=>({x,y,z});
@@ -589,6 +604,115 @@
   const icoFaceCenters=icoFaces.map(f=>centroidSphere(ico[f[0]],ico[f[1]],ico[f[2]]));
   const facesAtVertex=Array.from({length:ico.length},()=>[]);icoFaces.forEach((f,fi)=>f.forEach(v=>facesAtVertex[v].push(fi)));
   function orderedPentagonAtVertex(vi){const c=ico[vi],{u,v}=tangentBasis(c);return facesAtVertex[vi].map(fi=>icoFaceCenters[fi]).sort((a,b)=>{const da=sub(a,scale(c,dot(a,c))),db=sub(b,scale(c,dot(b,c)));return Math.atan2(dot(da,v),dot(da,u))-Math.atan2(dot(db,v),dot(db,u));});}
+  function bary3D(p,a,b,c){const v0=sub(b,a),v1=sub(c,a),v2=sub(p,a),d00=dot(v0,v0),d01=dot(v0,v1),d11=dot(v1,v1),d20=dot(v2,v0),d21=dot(v2,v1),den=d00*d11-d01*d01||1e-9;const v=(d11*d20-d01*d21)/den,w=(d00*d21-d01*d20)/den,u=1-v-w;return[u,v,w];}
+  const icoEdgeFaces=new Map();
+  const icoAdj=Array.from({length:icoFaces.length},()=>[]);
+  for(let fi=0;fi<icoFaces.length;fi++){
+    const f=icoFaces[fi];
+    for(let k=0;k<3;k++){
+      const a=f[k],b=f[(k+1)%3],key=[Math.min(a,b),Math.max(a,b)].join('-');
+      if(!icoEdgeFaces.has(key))icoEdgeFaces.set(key,[]);
+      icoEdgeFaces.get(key).push(fi);
+    }
+  }
+  for(const [key,arr] of icoEdgeFaces.entries()) if(arr.length===2){ const [a,b]=arr; icoAdj[a].push(b); icoAdj[b].push(a); }
+  function rayToIcosahedron(d){
+    const dir=norm(d); let best=null;
+    for(let fi=0;fi<icoFaces.length;fi++){
+      const f=icoFaces[fi],a=ico[f[0]],b=ico[f[1]],c=ico[f[2]]; let n=cross(sub(b,a),sub(c,a));
+      const denom=dot(n,dir); if(Math.abs(denom)<1e-8) continue; const t=dot(n,a)/denom; if(t<=1e-8) continue;
+      const q=scale(dir,t),bc=bary3D(q,a,b,c);
+      if(bc[0]>=-1e-5&&bc[1]>=-1e-5&&bc[2]>=-1e-5){ if(!best||t<best.t) best={face:fi,point:q,bary:bc,t}; }
+    }
+    if(best) return best;
+    let min=-1e9,face=0; for(let fi=0;fi<icoFaceCenters.length;fi++){ const s=dot(dir,icoFaceCenters[fi]); if(s>min){min=s;face=fi;} }
+    const f=icoFaces[face],a=ico[f[0]],b=ico[f[1]],c=ico[f[2]],n=cross(sub(b,a),sub(c,a)); const t=dot(n,a)/(dot(n,dir)||1e-9); const q=scale(dir,t);
+    return {face,point:q,bary:bary3D(q,a,b,c),t};
+  }
+  function buildIcoNet(){
+    const h=Math.sqrt(3)/2,faces=Array(icoFaces.length).fill(null),queue=[0];
+    const root=icoFaces[0]; faces[0]={map:new Map([[root[0],{x:0,y:0}],[root[1],{x:1,y:0}],[root[2],{x:.5,y:h}]])};
+    while(queue.length){
+      const fi=queue.shift(),face=icoFaces[fi],map=faces[fi].map;
+      for(const nfi of icoAdj[fi]) if(!faces[nfi]){
+        const nf=icoFaces[nfi],shared=nf.filter(v=>face.includes(v)); if(shared.length!==2) continue;
+        const [u,v]=shared, w=nf.find(x=>x!==u&&x!==v), pu=map.get(u), pv=map.get(v), pwParent=map.get(face.find(x=>x!==u&&x!==v));
+        const mid={x:(pu.x+pv.x)/2,y:(pu.y+pv.y)/2}, ex=pv.x-pu.x, ey=pv.y-pu.y, L=Math.hypot(ex,ey)||1, nx=-ey/L, ny=ex/L;
+        const parentSide=Math.sign((pwParent.x-mid.x)*nx+(pwParent.y-mid.y)*ny)||1;
+        const child={x:mid.x-parentSide*nx*(Math.sqrt(3)/2*L), y:mid.y-parentSide*ny*(Math.sqrt(3)/2*L)};
+        faces[nfi]={map:new Map([[u,pu],[v,pv],[w,child]])}; queue.push(nfi);
+      }
+    }
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    const layouts=faces.map((rec,fi)=>{const pts=icoFaces[fi].map(v=>({x:rec.map.get(v).x,y:rec.map.get(v).y})); for(const pt of pts){if(pt.x<minX)minX=pt.x;if(pt.x>maxX)maxX=pt.x;if(pt.y<minY)minY=pt.y;if(pt.y>maxY)maxY=pt.y;} return {pts};});
+    return {faces:layouts,bounds:{minX,maxX,minY,maxY,width:maxX-minX,height:maxY-minY}};
+  }
+  const icoNet=buildIcoNet();
+
+  // ---------- truncated icosahedron: 12 pentagons + 20 hexagons ----------
+  const icoNeighbors=Array.from({length:ico.length},()=>[]);
+  for(const [a,b] of icoEdges){icoNeighbors[a].push(b);icoNeighbors[b].push(a)}
+  function orderedNeighborsAtVertex(vi){
+    const c=ico[vi],{u,v}=tangentBasis(c);
+    return icoNeighbors[vi].slice().sort((a,b)=>{
+      const da=sub(ico[a],scale(c,dot(ico[a],c))),db=sub(ico[b],scale(c,dot(ico[b],c)));
+      return Math.atan2(dot(da,v),dot(da,u))-Math.atan2(dot(db,v),dot(db,u));
+    });
+  }
+  const truncVertexMap=new Map(),truncVerts=[];
+  function truncVertexId(a,b){
+    const key=`${a}-${b}`;if(truncVertexMap.has(key))return truncVertexMap.get(key);
+    const raw=add(scale(ico[a],2/3),scale(ico[b],1/3));
+    const id=truncVerts.length;truncVerts.push(raw);truncVertexMap.set(key,id);return id;
+  }
+  for(const [a,b] of icoEdges){truncVertexId(a,b);truncVertexId(b,a)}
+  const truncR=len(truncVerts[0]);for(let i=0;i<truncVerts.length;i++)truncVerts[i]=scale(truncVerts[i],1/truncR);
+  const truncFaces=[];
+  // 12 pentagons replacing the original icosahedron vertices.
+  for(let vi=0;vi<ico.length;vi++)truncFaces.push({type:'pentagon',source:vi,verts:orderedNeighborsAtVertex(vi).map(n=>truncVertexId(vi,n))});
+  // 20 hexagons replacing the original triangular faces.
+  for(let fi=0;fi<icoFaces.length;fi++){const [a,b,c]=icoFaces[fi];truncFaces.push({type:'hexagon',source:fi,verts:[truncVertexId(a,b),truncVertexId(b,a),truncVertexId(b,c),truncVertexId(c,b),truncVertexId(c,a),truncVertexId(a,c)]});}
+  function polygonNormal3D(face){const a=truncVerts[face.verts[0]],b=truncVerts[face.verts[1]],c=truncVerts[face.verts[2]];let n=norm(cross(sub(b,a),sub(c,a)));const cen=face.verts.reduce((s,i)=>add(s,truncVerts[i]),V(0,0,0));if(dot(n,cen)<0)n=scale(n,-1);return n}
+  const truncFaceData=truncFaces.map((face,fi)=>{
+    const points=face.verts.map(i=>truncVerts[i]),center=scale(points.reduce((s,q)=>add(s,q),V(0,0,0)),1/points.length),normal=polygonNormal3D(face);
+    const ux=norm(sub(points[1],points[0])),uy=norm(cross(normal,ux));
+    const local=points.map(q=>({x:dot(sub(q,center),ux),y:dot(sub(q,center),uy)}));
+    return{...face,fi,points,center,normal,ux,uy,local};
+  });
+  function rayToTruncated(d){
+    const dir=norm(d);let best=null;
+    for(const face of truncFaceData){
+      const den=dot(face.normal,dir);if(Math.abs(den)<1e-9)continue;const t=dot(face.normal,face.points[0])/den;if(t<=1e-8)continue;const q=scale(dir,t);
+      // Convex polygon half-space test in its own plane.
+      let inside=true,sign=0;for(let i=0;i<face.points.length;i++){const a=face.points[i],b=face.points[(i+1)%face.points.length],e=sub(b,a),w=sub(q,a),s=dot(cross(e,w),face.normal);if(Math.abs(s)<1e-7)continue;const sg=Math.sign(s);if(!sign)sign=sg;else if(sg!==sign){inside=false;break}}
+      if(inside&&(!best||t<best.t))best={face:face.fi,point:q,t};
+    }
+    if(best)return best;
+    let face=0,max=-1e9;for(const f of truncFaceData){const s=dot(dir,norm(f.center));if(s>max){max=s;face=f.fi}}
+    const f=truncFaceData[face],t=dot(f.normal,f.points[0])/(dot(f.normal,dir)||1e-9);return{face,point:scale(dir,t),t};
+  }
+  function mapPointToTruncated(p){const hit=rayToTruncated(norm(p));return scale(hit.point,len(p))}
+  const truncEdgeLength=len(sub(truncVerts[truncFaces[12].verts[0]],truncVerts[truncFaces[12].verts[1]]));
+  function buildTruncFacePartsNet(){
+    // Printable face-parts layout: 12 pentagons + 20 hexagons. Each part preserves the exact face metric.
+    const cols=6,cellX=3.0,cellY=3.0,layouts=[];let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    truncFaceData.forEach((face,fi)=>{
+      const col=fi%cols,row=Math.floor(fi/cols),ox=(col-(cols-1)/2)*cellX,oy=(2.5-row)*cellY;
+      const local=face.local.map(p=>({x:p.x/truncEdgeLength+ox,y:p.y/truncEdgeLength+oy}));
+      local.forEach(pt=>{minX=Math.min(minX,pt.x);maxX=Math.max(maxX,pt.x);minY=Math.min(minY,pt.y);maxY=Math.max(maxY,pt.y)});
+      layouts.push({pts:local,type:face.type,face:fi,center:{x:ox,y:oy}});
+    });
+    return{faces:layouts,bounds:{minX,maxX,minY,maxY,width:maxX-minX,height:maxY-minY}};
+  }
+  const truncNet=buildTruncFacePartsNet();
+  function truncNetCoordsOnFace(p,faceIndex){
+    const hit=rayToTruncated(norm(p)),face=truncFaceData[faceIndex],q3=(hit.face===faceIndex)?hit.point:(()=>{const dir=norm(p),t=dot(face.normal,face.points[0])/(dot(face.normal,dir)||1e-9);return scale(dir,t)})();
+    const d=sub(q3,face.center),lx=dot(d,face.ux)/truncEdgeLength,ly=dot(d,face.uy)/truncEdgeLength,layout=truncNet.faces[faceIndex],base=truncFaceData[faceIndex].local[0],net0=layout.pts[0];
+    const x=lx+(net0.x-base.x/truncEdgeLength)-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,y=ly+(net0.y-base.y/truncEdgeLength)-(truncNet.bounds.minY+truncNet.bounds.maxY)/2;
+    return{x,y,face:faceIndex};
+  }
+  function truncNetCoords(p){const info=rayToTruncated(norm(p));return truncNetCoordsOnFace(p,info.face)}
+  function divisionCountForKey(key=state.key){ const d=patterns[key].division||'simple8'; if(/^simple/.test(d)) return parseInt(d.replace('simple',''),10)||8; if(d==='c8') return 8; if(d==='c10') return 10; return 8; }
 
   function guideSpec(type){
     const out=[];
@@ -951,11 +1075,81 @@
   function populateSelect(){patternSelect.innerHTML='';let last='';for(const key of order){const p=patterns[key];if(p.category!==last){const g=document.createElement('optgroup');g.label=p.category;g.dataset.category=p.category;patternSelect.appendChild(g);last=p.category;}const g=[...patternSelect.children].find(x=>x.dataset.category===p.category);const o=document.createElement('option');o.value=key;o.textContent=p.name;g.appendChild(o);}}
   populateSelect();
 
-  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.0,showGuides:true,showLabels:true,showNeedle:true,lightOn:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',threadWidth:1.0,realisticMaterial:'cotton',diameterCm:5.0,customThreadColors:{},customThreadRenders:{},customThreadWidths:{},customThreadMaterials:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
+  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.0,showGuides:true,showLabels:true,showNeedle:true,lightOn:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',threadWidth:1.0,realisticMaterial:'cotton',diameterCm:5.0,customThreadColors:{},customThreadRenders:{},customThreadWidths:{},customThreadMaterials:{},customThreadDyes:{},displayMode:'sphere',rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
   patternSelect.value=state.key;const finished=[];
 
   function rotate(p){let{x,y,z}=p;const cy=Math.cos(state.ry),sy=Math.sin(state.ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(state.rx),sx=Math.sin(state.rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];return V(x,y,z)}
-  function proj(p){const q=rotate(p),d=3.5,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom;return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z}}
+  function cartesianToLatLon(p){const n=norm(p);return{lat:Math.asin(clamp(n.y,-1,1)),lon:Math.atan2(n.z,n.x)}}
+  function wrapLon(lon){while(lon<=-Math.PI)lon+=Math.PI*2;while(lon>Math.PI)lon-=Math.PI*2;return lon}
+  function projectLocal2D(x,y,b){const scale=Math.min((canvas.clientWidth*.88)/(b.width||1),(canvas.clientHeight*.78)/(b.height||1))*state.zoom; const cx=canvas.clientWidth/2+state.panX, cy=canvas.clientHeight/2+state.panY; return {x:cx+x*scale,y:cy-y*scale,z:1,scale};}
+  function planeBounds(){return{width:Math.PI*2,height:Math.PI};}
+  function goreBounds(){const n=divisionCountForKey(); const sw=(2*Math.PI/n)*1.18; return{width:n*sw,height:Math.PI};}
+  function goreCoords(p){const {lat,lon}=cartesianToLatLon(p),n=divisionCountForKey(); const span=2*Math.PI/n,wrap=((lon+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2); const idx=Math.min(n-1,Math.floor(wrap/span)); const center=(idx+.5)*span; const local=wrap-center; const max=span/2; const strip=span*1.18; const half=Math.max(.02,Math.cos(lat)*span*.47); const x=(idx-n/2+.5)*strip + (local/max)*half; return{x,y:lat,gore:idx};}
+  function icoNetCoords(p){const info=rayToIcosahedron(norm(p)); const lay=icoNet.faces[info.face].pts; const bc=info.bary; const x=bc[0]*lay[0].x+bc[1]*lay[1].x+bc[2]*lay[2].x - (icoNet.bounds.minX+icoNet.bounds.maxX)/2; const y=bc[0]*lay[0].y+bc[1]*lay[1].y+bc[2]*lay[2].y - (icoNet.bounds.minY+icoNet.bounds.maxY)/2; return{x,y,face:info.face};}
+  function mapPointToIcosahedron(p){const info=rayToIcosahedron(norm(p)); return scale(info.point,len(p));}
+  function projMeta(p){
+    if(state.displayMode==='sphere'){const q=rotate(p),d=3.5,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'sphere'},world:q};}
+    if(state.displayMode==='ico3d'){const m=mapPointToIcosahedron(p),q=rotate(m),d=3.7,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.35*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'ico3d'},world:q};}
+    if(state.displayMode==='trunc3d'){const m=mapPointToTruncated(p),q=rotate(m),d=3.7,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.35*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'trunc3d'},world:q};}
+    if(state.displayMode==='plane'){const ll=cartesianToLatLon(p),q=projectLocal2D(wrapLon(ll.lon),ll.lat,planeBounds()); q.meta={mode:'plane',lon:ll.lon,lat:ll.lat}; return q;}
+    if(state.displayMode==='gore'){const g=goreCoords(p),q=projectLocal2D(g.x,g.y,goreBounds()); q.meta={mode:'gore',gore:g.gore,lat:g.y}; return q;}
+    if(state.displayMode==='icoNet'){const g=icoNetCoords(p),q=projectLocal2D(g.x,g.y,{width:icoNet.bounds.width,height:icoNet.bounds.height}); q.meta={mode:'icoNet',face:g.face}; return q;}
+    const g=truncNetCoords(p),q=projectLocal2D(g.x,g.y,{width:truncNet.bounds.width,height:truncNet.bounds.height}); q.meta={mode:'truncNet',face:g.face}; return q;
+  }
+  function shouldBreakProjection(m0,m1,p0,p1,a2=null,b2=null){
+    if(!m0||!m1)return false;
+    if(m0.mode==='plane')return Math.abs((m1.lon||0)-(m0.lon||0))>Math.PI;
+    if(m0.mode==='gore')return m0.gore!==m1.gore;
+    if(m0.mode==='icoNet'){
+      if(m0.face===m1.face)return false;
+      if(a2&&b2){
+        const dist=Math.hypot(b2.x-a2.x,b2.y-a2.y);
+        const tol=Math.max(3,Math.min(canvas.clientWidth,canvas.clientHeight)*0.018);
+        return dist>tol;
+      }
+      return true;
+    }
+    if(m0.mode==='truncNet')return m0.face!==m1.face;
+    return false;
+  }
+  function sphereInterp(a,b,t){return scale(norm(lerp(norm(a),norm(b),t)),lerp(V(len(a),0,0),V(len(b),0,0),t).x)}
+  function goreCoordsForIndex(p,goreIndex){
+    const {lat,lon}=cartesianToLatLon(p),n=divisionCountForKey(),span=2*Math.PI/n,strip=span*1.18;
+    let wrap=((lon+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2),center=(goreIndex+.5)*span,local=wrap-center;
+    while(local>Math.PI)local-=Math.PI*2;while(local<-Math.PI)local+=Math.PI*2;
+    const max=span/2,half=Math.max(.02,Math.cos(lat)*span*.47),x=(goreIndex-n/2+.5)*strip+clamp(local/max,-1,1)*half;
+    return{x,y:lat,gore:goreIndex};
+  }
+  function projectGoreBoundaryPoint(p,goreIndex){const g=goreCoordsForIndex(p,goreIndex),q=projectLocal2D(g.x,g.y,goreBounds());q.meta={mode:'gore',gore:goreIndex,lat:g.y};return q}
+  function icoNetCoordsOnFace(p,faceIndex){
+    const dir=norm(p),f=icoFaces[faceIndex],a=ico[f[0]],b=ico[f[1]],c=ico[f[2]],n=cross(sub(b,a),sub(c,a)),den=dot(n,dir)||1e-9,t=dot(n,a)/den,q3=scale(dir,t),bc=bary3D(q3,a,b,c),lay=icoNet.faces[faceIndex].pts;
+    const x=bc[0]*lay[0].x+bc[1]*lay[1].x+bc[2]*lay[2].x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,y=bc[0]*lay[0].y+bc[1]*lay[1].y+bc[2]*lay[2].y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2;
+    return{x,y,face:faceIndex};
+  }
+  function projectIcoBoundaryPoint(p,faceIndex){const g=icoNetCoordsOnFace(p,faceIndex),q=projectLocal2D(g.x,g.y,{width:icoNet.bounds.width,height:icoNet.bounds.height});q.meta={mode:'icoNet',face:faceIndex};return q}
+  function projectTruncBoundaryPoint(p,faceIndex){const g=truncNetCoordsOnFace(p,faceIndex),q=projectLocal2D(g.x,g.y,{width:truncNet.bounds.width,height:truncNet.bounds.height});q.meta={mode:'truncNet',face:faceIndex};return q}
+  function boundarySplit(p0,p1,a,b){
+    if(state.displayMode==='gore'&&a.meta.gore!==b.meta.gore){
+      const g0=a.meta.gore,g1=b.meta.gore;let lo=0,hi=1;
+      for(let k=0;k<34;k++){const mid=(lo+hi)/2,m=sphereInterp(p0,p1,mid),gm=goreCoords(m).gore;if(gm===g0)lo=mid;else hi=mid;}
+      const t=(lo+hi)/2,p=sphereInterp(p0,p1,t),qa=projectGoreBoundaryPoint(p,g0),qb=projectGoreBoundaryPoint(p,g1);return{t,p,qa,qb};
+    }
+    if(state.displayMode==='icoNet'&&a.meta.face!==b.meta.face){
+      const f0=a.meta.face,f1=b.meta.face;let lo=0,hi=1;
+      for(let k=0;k<38;k++){const mid=(lo+hi)/2,m=sphereInterp(p0,p1,mid),fm=rayToIcosahedron(norm(m)).face;if(fm===f0)lo=mid;else hi=mid;}
+      const t=(lo+hi)/2,p=sphereInterp(p0,p1,t),qa=projectIcoBoundaryPoint(p,f0),qb=projectIcoBoundaryPoint(p,f1);return{t,p,qa,qb};
+    }
+    if(state.displayMode==='truncNet'&&a.meta.face!==b.meta.face){
+      const f0=a.meta.face,f1=b.meta.face;let lo=0,hi=1;
+      for(let k=0;k<40;k++){const mid=(lo+hi)/2,m=sphereInterp(p0,p1,mid),fm=rayToTruncated(norm(m)).face;if(fm===f0)lo=mid;else hi=mid;}
+      const t=(lo+hi)/2,p=sphereInterp(p0,p1,t),qa=projectTruncBoundaryPoint(p,f0),qb=projectTruncBoundaryPoint(p,f1);return{t,p,qa,qb};
+    }
+    if(state.displayMode==='plane'&&Math.abs((b.meta.lon||0)-(a.meta.lon||0))>Math.PI){
+      const lon0=a.meta.lon,lon1=b.meta.lon;let target=lon0>0?Math.PI:-Math.PI,adj=lon1;if(lon0>0&&lon1<0)adj=lon1+Math.PI*2;if(lon0<0&&lon1>0)adj=lon1-Math.PI*2;const t=clamp((target-lon0)/(adj-lon0||1e-9),0,1),p=sphereInterp(p0,p1,t),ll=cartesianToLatLon(p),qa=projectLocal2D(target,ll.lat,planeBounds()),qb=projectLocal2D(-target,ll.lat,planeBounds());qa.meta={mode:'plane',lon:target,lat:ll.lat};qb.meta={mode:'plane',lon:-target,lat:ll.lat};return{t,p,qa,qb};
+    }
+    return null;
+  }
+  function proj(p){return projMeta(p)}
   function resize(){const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(canvas.clientWidth*dpr);canvas.height=Math.round(canvas.clientHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
   window.addEventListener('resize',resize);resize();
 
@@ -964,13 +1158,17 @@
     const segs=[],denom=Math.max(1,points.length-1),pathId=++polyPathSerial;
     let arcCum=0;const arcStarts=[0];
     for(let i=0;i<points.length-1;i++){
-      const u=norm(points[i]),v=norm(points[i+1]);
-      arcCum+=Math.acos(clamp(dot(u,v),-1,1));arcStarts.push(arcCum);
+      const u=norm(points[i]),v=norm(points[i+1]);arcCum+=Math.acos(clamp(dot(u,v),-1,1));arcStarts.push(arcCum);
     }
     const totalArc=Math.max(1e-6,arcCum);
+    const addSeg=(p0,p1,a,b,i,arc0,arc1,first,last)=>{const z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2,alpha=(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d')?(z>=0?alphaFront:alphaBack):alphaFront;segs.push({a,b,p0,p1,z,r,color,width,alpha,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:first,isLast:last,pathId,arc0,arc1,totalArc});};
     for(let i=0;i<points.length-1;i++){
-      const p0=points[i],p1=points[i+1],a=proj(p0),b=proj(p1),z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2;
-      segs.push({a,b,p0,p1,z,r,color,width,alpha:z>=0?alphaFront:alphaBack,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:i===0,isLast:i===points.length-2,pathId,arc0:arcStarts[i],arc1:arcStarts[i+1],totalArc});
+      const p0=points[i],p1=points[i+1],a=projMeta(p0),b=projMeta(p1),breaks=shouldBreakProjection(a.meta,b.meta,p0,p1,a,b);
+      if(!breaks){addSeg(p0,p1,a,b,i,arcStarts[i],arcStarts[i+1],i===0,i===points.length-2);continue;}
+      const cut=boundarySplit(p0,p1,a,b);if(!cut)continue;
+      const arcMid=arcStarts[i]+(arcStarts[i+1]-arcStarts[i])*cut.t;
+      addSeg(p0,cut.p,a,cut.qa,i,arcStarts[i],arcMid,i===0,false);
+      addSeg(cut.p,p1,cut.qb,b,i,arcMid,arcStarts[i+1],false,i===points.length-2);
     }
     return segs
   }
@@ -1032,6 +1230,31 @@
     return{division,kagariTotal,byKey};
   }
   function formatLengthCm(cm){return cm>=100?`${(cm/100).toFixed(cm>=1000?2:2)} m`:`${cm.toFixed(1)} cm`;}
+  function updateDisplayModeUI(){
+    displayModeSelect.value=state.displayMode;
+    const planar=state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet';
+    svgExportBtn.disabled=!planar;
+    svgExportBtn.style.opacity=planar?'1':'.45';
+    displayModeHint.textContent=planar?'平面表示ではSVG出力できます。':'3D表示ではSVG出力はできません。';
+  }
+  function buildSceneForExport(){
+    const seq=sequence(),scene=[];
+    for(const s of finished){ if(s.kind==='division'){ if(state.showGuides) scene.push(...polySegments(s.points,state.divisionColor,1.55,1,1,null,'division')); } else if(s.kind==='kagari'){ scene.push(...polySegments(s.points,s.color,2.7,1,1,null,'thread')); } }
+    if(state.stepIndex<seq.length){ const step=seq[state.stepIndex]; if(step&&step.kind!=='core'){ let pts=computeDisplayedThread(step,state.stepProgress).points; pts=applyStitchDepth(pts,step,state.stepProgress); if(step.kind==='division'&&state.showGuides) scene.push(...polySegments(pts,state.divisionColor,2.65,1,1,null,'division')); if(step.kind==='kagari') scene.push(...polySegments(pts,step.color,4.1,1,1,null,'thread')); }}
+    return scene;
+  }
+  function exportCurrentSVG(){
+    if(!(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet')) return;
+    const scene=buildSceneForExport(),w=canvas.clientWidth,h=canvas.clientHeight;
+    const parts=[`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,`<rect width="100%" height="100%" fill="#ffffff"/>`];
+    const outline=(pts)=>parts.push(`<path d="${pts.map((q,i)=>(i?'L ':'M ')+q.x.toFixed(2)+' '+q.y.toFixed(2)).join(' ')} Z" fill="none" stroke="#9b8f72" stroke-width="1"/>`);
+    if(state.displayMode==='icoNet'){for(const face of icoNet.faces){outline(face.pts.map(pt=>projectLocal2D(pt.x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,pt.y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2,{width:icoNet.bounds.width,height:icoNet.bounds.height})))}}
+    if(state.displayMode==='truncNet'){for(const face of truncNet.faces){const pts=face.pts.map(pt=>projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,{width:truncNet.bounds.width,height:truncNet.bounds.height}));outline(pts);const qc=projectLocal2D(face.center.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.center.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,{width:truncNet.bounds.width,height:truncNet.bounds.height});parts.push(`<text x="${qc.x.toFixed(2)}" y="${qc.y.toFixed(2)}" font-size="9" text-anchor="middle" fill="#756b58">${face.type==='pentagon'?'P'+(face.face+1):'H'+(face.face-11)}</text>`)}}
+    for(const s of scene){ const color=s.kind==='division'?state.divisionColor:s.color; const stroke=color; const sw=(s.width||1.5)*(s.kind==='thread'?Math.max(.8,threadWidthFor(color)):1); parts.push(`<path d="M ${s.a.x.toFixed(2)} ${s.a.y.toFixed(2)} L ${s.b.x.toFixed(2)} ${s.b.y.toFixed(2)}" fill="none" stroke="${stroke}" stroke-width="${sw.toFixed(2)}" stroke-linecap="round" stroke-opacity="${(s.alpha||1).toFixed(3)}"/>`); }
+    parts.push('</svg>');
+    const blob=new Blob([parts.join('')],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download=`temari_${state.key}_${state.displayMode}.svg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
+  }
+
   function updateThreadLengthSummary(){
     if(!threadLengthSummary)return;const d=threadLengthData(),items=originalThreadColorsFor(state.key);
     let html=`<div class="length-summary-row"><span>② 地割り糸</span><strong>${formatLengthCm(d.division)}</strong></div>`;
@@ -1351,8 +1574,42 @@
   function hexRgb(hex){const h=hex.replace('#','');const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
   function mixHex(hex,other,t){const a=hexRgb(hex),b=hexRgb(other);return `rgb(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)})`}
   function coreVisibility(){const seq=currentPattern().allSteps;if(state.stepIndex===0)return .18+.82*clamp(state.stepProgress,0,1);return seq.length?1:0}
+  function drawFlatModeBackdrop(){
+    const cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY;
+    let bounds=planeBounds(); if(state.displayMode==='gore') bounds=goreBounds(); else if(state.displayMode==='icoNet') bounds={width:icoNet.bounds.width,height:icoNet.bounds.height}; else if(state.displayMode==='truncNet') bounds={width:truncNet.bounds.width,height:truncNet.bounds.height};
+    const scale=Math.min((canvas.clientWidth*.88)/(bounds.width||1),(canvas.clientHeight*.78)/(bounds.height||1))*state.zoom, w=bounds.width*scale,h=bounds.height*scale;
+    ctx.save();ctx.globalAlpha=.95; ctx.fillStyle=mixHex(state.coreColor,'#ffffff',.22); ctx.fillRect(cx-w/2,cy-h/2,w,h); ctx.strokeStyle='rgba(90,90,90,.16)'; ctx.lineWidth=1; ctx.strokeRect(cx-w/2,cy-h/2,w,h);
+    if(state.displayMode==='plane'){
+      for(let lon=-Math.PI;lon<=Math.PI+1e-6;lon+=Math.PI/6){const x=cx+lon*scale; ctx.beginPath(); ctx.moveTo(x,cy-h/2); ctx.lineTo(x,cy+h/2); ctx.strokeStyle='rgba(160,160,160,.18)'; ctx.stroke();}
+      for(let lat=-Math.PI/2;lat<=Math.PI/2+1e-6;lat+=Math.PI/12){const y=cy-lat*scale; ctx.beginPath(); ctx.moveTo(cx-w/2,y); ctx.lineTo(cx+w/2,y); ctx.strokeStyle='rgba(160,160,160,.18)'; ctx.stroke();}
+    } else if(state.displayMode==='gore'){
+      const n=divisionCountForKey(), span=2*Math.PI/n, strip=span*1.18; ctx.strokeStyle='rgba(150,135,92,.36)';
+      for(let g=0;g<n;g++){
+        const cxg=(g-n/2+.5)*strip; ctx.beginPath();
+        for(let i=0;i<=72;i++){const lat=-Math.PI/2 + i*Math.PI/72, half=Math.max(.02,Math.cos(lat)*span*.47), pt=projectLocal2D(cxg-half,lat,bounds); if(i===0) ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y);} 
+        for(let i=72;i>=0;i--){const lat=-Math.PI/2 + i*Math.PI/72, half=Math.max(.02,Math.cos(lat)*span*.47), pt=projectLocal2D(cxg+half,lat,bounds); ctx.lineTo(pt.x,pt.y);} ctx.closePath(); ctx.stroke();
+      }
+    } else if(state.displayMode==='icoNet'){
+      ctx.strokeStyle='rgba(140,120,80,.44)'; ctx.lineWidth=1.05; for(const face of icoNet.faces){ ctx.beginPath(); face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,pt.y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2,bounds); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)}); const q0=projectLocal2D(face.pts[0].x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,face.pts[0].y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2,bounds); ctx.lineTo(q0.x,q0.y); ctx.stroke(); }
+    } else if(state.displayMode==='truncNet'){
+      ctx.strokeStyle='rgba(140,120,80,.46)';ctx.lineWidth=1.05;ctx.font='9px Times New Roman';ctx.textAlign='center';ctx.textBaseline='middle';
+      for(const face of truncNet.faces){ctx.beginPath();face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});const q0=projectLocal2D(face.pts[0].x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.pts[0].y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);ctx.lineTo(q0.x,q0.y);ctx.closePath();ctx.stroke();const qc=projectLocal2D(face.center.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.center.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);ctx.fillStyle='rgba(100,90,75,.38)';ctx.fillText(`${face.type==='pentagon'?'P'+(face.face+1):'H'+(face.face-11)}`,qc.x,qc.y)}
+    }
+    ctx.restore();
+  }
+  function drawIco3DBase(vis){
+    const tris=icoFaces.map((f,fi)=>{ const pts=f.map(i=>proj(mapPointToIcosahedron(ico[i]))); const z=(pts[0].z+pts[1].z+pts[2].z)/3; return {pts,z,fi}; }).sort((a,b)=>a.z-b.z);
+    for(const t of tris){ ctx.save(); ctx.globalAlpha=.28*vis; ctx.beginPath(); t.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); const shade=150+Math.round((t.z+1)*22); ctx.fillStyle=`rgb(${shade},${shade-8},${shade-18})`; ctx.fill(); ctx.strokeStyle='rgba(100,92,78,.32)'; ctx.lineWidth=.8; ctx.stroke(); ctx.restore(); }
+  }
+  function drawTrunc3DBase(vis){
+    const polys=truncFaceData.map(face=>{const pts=face.points.map(p=>projMeta(p)),z=pts.reduce((s,p)=>s+p.z,0)/pts.length;return{pts,z,type:face.type}}).sort((a,b)=>a.z-b.z);
+    for(const poly of polys){ctx.save();ctx.globalAlpha=.31*vis;ctx.beginPath();poly.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();const shade=(poly.type==='pentagon'?166:154)+Math.round((poly.z+1)*18);ctx.fillStyle=`rgb(${shade},${shade-7},${shade-17})`;ctx.fill();ctx.strokeStyle='rgba(94,86,74,.38)';ctx.lineWidth=.8;ctx.stroke();ctx.restore()}
+  }
   function drawCoreSphere(){
     const vis=coreVisibility();if(vis<=.001)return;
+    if(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet'){ drawFlatModeBackdrop(); return; }
+    if(state.displayMode==='ico3d'){ drawIco3DBase(vis); return; }
+    if(state.displayMode==='trunc3d'){ drawTrunc3DBase(vis); return; }
     const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom,r=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY,rr=r*(.94+.06*vis);
     ctx.save();ctx.globalAlpha=vis;ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.clip();
     if(state.lightOn){
@@ -1361,7 +1618,6 @@
       ctx.fillStyle=state.coreColor;
     }
     ctx.fillRect(cx-rr,cy-rr,rr*2,rr*2);
-    // Fine wound-thread texture: fixed to the sphere silhouette, so the ball does not change diameter during rotation.
     ctx.lineCap='round';for(let i=-18;i<=18;i++){const yy=cy+i*rr/19;const span=Math.sqrt(Math.max(0,rr*rr-(yy-cy)*(yy-cy)));ctx.beginPath();ctx.moveTo(cx-span,yy);ctx.bezierCurveTo(cx-span*.35,yy-rr*.04*Math.sin(i*.8),cx+span*.35,yy+rr*.04*Math.sin(i*.8),cx+span,yy);ctx.strokeStyle=i%3===0?'rgba(255,255,255,.18)':'rgba(40,40,40,.055)';ctx.lineWidth=.65;ctx.stroke()}
     for(let i=-9;i<=9;i++){const xx=cx+i*rr/10;const span=Math.sqrt(Math.max(0,rr*rr-(xx-cx)*(xx-cx)));ctx.beginPath();ctx.moveTo(xx,cy-span);ctx.bezierCurveTo(xx+rr*.035*Math.sin(i),cy-span*.35,xx-rr*.035*Math.sin(i),cy+span*.35,xx,cy+span);ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=.45;ctx.stroke()}
     ctx.restore();ctx.save();ctx.globalAlpha=vis;ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.strokeStyle='rgba(80,80,80,.18)';ctx.lineWidth=.75;ctx.stroke();ctx.restore();
@@ -1455,7 +1711,7 @@
     if(!state.showNeedle||!step||step.kind==='core'||!step.points||step.points.length<2)return null;
     const relation=inferStitchRelation(step);
     const anim=computeAnimatedStepState(step,progress);
-    let tail,dir,contact,threadResume='surface';
+    let tail,dir,contact,threadResume='surface',flatDisplayDir=null;
     // Needle geometry: cone height : base diameter = 50 : 1.
     // The rounded rear pole of the hemisphere is the actual thread-attachment point.
     const totalLen=.48;
@@ -1474,12 +1730,14 @@
         contact=slerpPoint(anim.from,anim.to,s,surfaceR);
         tail=contact;
         dir=tangentDirAtPoint(anim.from,anim.to,contact);
+        flatDisplayDir=dir;
         threadResume='surface';
       }else if(anim.mode==='pivot-in'){
         const s=smoothstep01((l-spec.move)/Math.max(.0001,spec.pivotIn));
         contact=scale(norm(anim.to),surfaceR);
         tail=contact;
         dir=slerpVec(prevDir,inward,s);
+        flatDisplayDir=slerpVec(prevDir,outNext,s);
         threadResume='hold';
       }else if(anim.mode==='pivot-through'){
         const s=smoothstep01((l-spec.move-spec.pivotIn)/Math.max(.0001,spec.pivotThrough));
@@ -1487,24 +1745,27 @@
         const inwardDepth=(relation==='under'?.085:.055)*Math.sin(Math.PI*s);
         tail=scale(norm(anim.to),surfaceR-inwardDepth*.45);
         dir=slerpVec(inward,outNext,s);
+        flatDisplayDir=outNext;
         threadResume='hold';
       }else{
         const s=smoothstep01((l-spec.move-spec.pivotIn-spec.pivotThrough)/Math.max(.0001,spec.pivotOut));
         contact=scale(norm(anim.to),surfaceR);
         tail=contact;
         dir=slerpVec(inward,outNext,.65+.35*s);
+        flatDisplayDir=outNext;
         threadResume='surface';
       }
     }else{
       const fr=currentPathFrame(step.points,progress);if(!fr)return null;
       tail=scale(norm(fr.p),surfaceR);contact=tail;dir=fr.t;
       if(relation==='under')dir=slerpVec(dir,scale(fr.n,-1),.08);
+      flatDisplayDir=fr.t;
     }
-    dir=norm(dir);
+    dir=norm(dir); flatDisplayDir=norm(flatDisplayDir||dir);
     // Hemisphere flat face/base of cone is one radius forward from the rounded rear pole.
     const baseCenter=add(tail,scale(dir,baseRadius));
     const tip=add(baseCenter,scale(dir,coneHeight));
-    return{tail,baseCenter,tip,dir,contact,relation,threadResume,totalLen,coneHeight,baseRadius};
+    return{tail,baseCenter,tip,dir,flatDisplayDir,contact,relation,threadResume,totalLen,coneHeight,baseRadius};
   }
   function needleProfileRadius(model,t){
     const x=clamp(t,0,1)*model.totalLen;
@@ -1566,6 +1827,41 @@
     const runs=needleRuns(model,frontOnly);
     for(const [a,b] of runs)drawNeedleSolidRun(model,a,b,frontOnly?1:.96);
   }
+  function flatNeedleScreenDirection(model){
+    const n=norm(model.tail),t0=norm(model.flatDisplayDir||model.dir),anchor=projMeta(scale(n,1.012));
+    const tries=[.018,.008,.003,-.003,-.008,-.018]; let best=null;
+    for(const eps of tries){
+      const tangent=eps>0?t0:scale(t0,-1),step=Math.abs(eps),p1=scale(norm(add(n,scale(tangent,step))),1.012),q1=projMeta(p1);
+      let dx=q1.x-anchor.x,dy=q1.y-anchor.y,dist=Math.hypot(dx,dy);
+      if(!Number.isFinite(dist)||dist<.02)continue;
+      if(eps<0){dx=-dx;dy=-dy;}
+      const penalty=shouldBreakProjection(anchor.meta,q1.meta,scale(n,1.012),p1)?10000:0;
+      const score=dist+penalty;
+      if(!best||score<best.score)best={dx,dy,dist,score};
+    }
+    if(!best)return{x:1,y:0};
+    const L=Math.hypot(best.dx,best.dy)||1; return{x:best.dx/L,y:best.dy/L};
+  }
+  function drawNeedleFlat(model){
+    if(!model||!state.showNeedle)return;
+    const tailWorld=scale(norm(model.tail),1.012),tail=projMeta(tailWorld),u=flatNeedleScreenDirection(model),v={x:-u.y,y:u.x};
+    // Screen-space needle for all planar modes: fixed size prevents projection singularities
+    // at longitude seams, gore boundaries, and icosahedron-net face changes.
+    const lengthPx=clamp(66*Math.sqrt(state.zoom),46,110),diameterPx=Math.max(1.7,lengthPx/50),r=diameterPx/2,coneLen=lengthPx-r;
+    const base={x:tail.x+u.x*r,y:tail.y+u.y*r},tip={x:base.x+u.x*coneLen,y:base.y+u.y*coneLen};
+    const upper={x:base.x+v.x*r,y:base.y+v.y*r},lower={x:base.x-v.x*r,y:base.y-v.y*r};
+    const angle=Math.atan2(u.y,u.x);
+    ctx.save();
+    // Metallic silhouette: cone tip + matching rear hemisphere, rendered as one continuous rigid body.
+    ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(upper.x,upper.y);
+    ctx.arc(base.x,base.y,r,angle+Math.PI/2,angle-Math.PI/2,true);
+    ctx.lineTo(tip.x,tip.y);ctx.closePath();
+    const g=ctx.createLinearGradient(base.x+v.x*r,base.y+v.y*r,base.x-v.x*r,base.y-v.y*r);
+    g.addColorStop(0,'rgba(66,72,77,.98)');g.addColorStop(.23,'rgba(166,173,179,.99)');g.addColorStop(.47,'rgba(252,253,254,1)');g.addColorStop(.68,'rgba(193,199,204,.99)');g.addColorStop(1,'rgba(62,68,73,.98)');
+    ctx.fillStyle=g;ctx.fill();ctx.strokeStyle='rgba(45,49,53,.9)';ctx.lineWidth=.7;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(tail.x+v.x*r*.25,tail.y+v.y*r*.25);ctx.lineTo(tip.x+v.x*r*.10,tip.y+v.y*r*.10);ctx.strokeStyle='rgba(255,255,255,.82)';ctx.lineWidth=.45;ctx.stroke();
+    ctx.restore();
+  }
   function raySphereIntersection(p,d,r=1.002){
     const dd=dot(d,d),b=2*dot(p,d),c=dot(p,p)-r*r,disc=b*b-4*dd*c;
     if(disc<0)return null;
@@ -1574,7 +1870,7 @@
     return Number.isFinite(t)?add(p,scale(d,t)):null;
   }
   function drawNeedleShadow(model){
-    if(!state.lightOn||!state.showNeedle||!model)return;
+    if(!state.lightOn||!state.showNeedle||!model||!(state.displayMode==='sphere'||state.displayMode==='ico3d'))return;
     // Direction travelled by light from an upper-left/front source toward the temari.
     const lightRay=norm(V(.34,-.58,-.74)),N=54,runs=[];let run=[];
     for(let i=0;i<=N;i++){
@@ -1730,6 +2026,8 @@
     textureRow.hidden=!(state.threadRender==='texture'&&!custom)&&!customHasTexture;
   }
   threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;updateThreadControlState();updateThreadLengthSummary()});
+  displayModeSelect.addEventListener('change',e=>{state.displayMode=e.target.value;updateDisplayModeUI()});
+  svgExportBtn.addEventListener('click',exportCurrentSVG);
   threadRenderMode.addEventListener('change',e=>{state.threadRender=e.target.value;updateThreadControlState()});
   realisticMaterialMode.addEventListener('change',e=>state.realisticMaterial=e.target.value);
   commonMaterialHelpBtn.addEventListener('click',()=>lineMethodHelp('realistic',realisticMaterialMode.value));
@@ -1816,12 +2114,17 @@
     }
     // Back-side/submerged thread and the complete needle are painted first; the opaque core masks the hidden portion.
     // Then only the front/outside portion of the same rigid needle is repainted above the core.
-    const horizon=.285,back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
-    if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if(q.z>=.285&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
+    const horizon=.285;
+    if(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'){
+      const back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
+    }else{
+      drawCoreSphere(); drawSegments(segs); if(needleModel)drawNeedleFlat(needleModel)
+    }
+    if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if((!(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d')||q.z>=.285)&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
     requestAnimationFrame(frame);
   }
-  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;realisticMaterialMode.value=state.realisticMaterial;threadWidthRange.value=String(state.threadWidth);diameterCm.value=state.diameterCm.toFixed(1);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';speedRange.value=String(state.speed);speedValue.textContent=state.speed.toFixed(2)+'x';lightToggle.checked=state.lightOn;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
-  ensureCustomThreadColors(state.key);updateThreadControlState();refreshMeta();buildTimelineTicks();updateUI();updateThreadLengthSummary();requestAnimationFrame(frame);
+  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;realisticMaterialMode.value=state.realisticMaterial;threadWidthRange.value=String(state.threadWidth);diameterCm.value=state.diameterCm.toFixed(1);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';speedRange.value=String(state.speed);speedValue.textContent=state.speed.toFixed(2)+'x';lightToggle.checked=state.lightOn;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();displayModeSelect.value=state.displayMode;
+  ensureCustomThreadColors(state.key);updateThreadControlState();refreshMeta();buildTimelineTicks();updateUI();updateDisplayModeUI();updateThreadLengthSummary();requestAnimationFrame(frame);
 })();
 </script>
 </body>
