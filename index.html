@@ -321,6 +321,41 @@
     #needleStatus{display:none}
   }
 
+  /* --- physical size / thread length estimates --- */
+  #dimensionPanel{margin-top:20px;padding-top:14px;border-top:1px solid #ededed}
+  #dimensionPanel .dimension-title{font-family:"Times New Roman",Times,serif;font-size:9px;letter-spacing:.16em;color:#999;margin-bottom:9px}
+  #dimensionPanel .diameter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  #diameterCm{width:64px;border:0;border-bottom:1px solid #aaa;background:transparent;padding:3px 2px;font-family:"Times New Roman",Times,serif;font-size:11px;color:#444}
+  #threadLengthSummary{margin-top:11px;border-top:1px solid #f1f1f1;padding-top:8px}
+  .length-summary-row{display:grid;grid-template-columns:minmax(120px,1fr) auto;gap:12px;padding:3px 0;font-size:10px;color:#666}
+  .length-summary-row.total{color:#333;border-top:1px solid #eee;margin-top:4px;padding-top:6px}
+  .length-swatch{display:inline-block;width:12px;height:5px;margin-right:7px;vertical-align:middle;border:1px solid rgba(0,0,0,.12)}
+  .length-note{font-size:8px;line-height:1.65;color:#aaa;margin-top:6px}
+
+  /* --- realistic 3D material presets / method help --- */
+  #commonRealisticRow{display:none;align-items:center;gap:8px}
+  #commonRealisticRow.visible{display:flex}
+  .material-help-btn,.line-help-btn{width:20px;height:20px;min-height:20px;padding:0;border:1px solid #aaa;border-radius:50%;font-family:"Times New Roman",Times,serif;font-size:10px;line-height:18px;text-align:center;color:#666;background:#fff}
+  .material-help-btn:hover,.line-help-btn:hover{border-color:#555;color:#111}
+  .thread-material-select{min-width:110px!important;max-width:150px!important}
+  .thread-render-box{display:flex;align-items:center;gap:4px;min-width:118px}.thread-render-box select{flex:1;min-width:82px!important}
+  .thread-material-box{display:flex;align-items:center;gap:5px;min-width:148px}
+  .thread-palette-item.realistic-active{grid-template-columns:auto 34px minmax(92px,auto) minmax(126px,1fr) minmax(86px,auto)}
+  .thread-palette-item .thread-material-box{grid-column:3 / span 2}
+  #materialHelpDialog{width:min(720px,calc(100vw - 44px));max-height:82vh;border:1px solid #d5d5d5;background:#fff;padding:28px 30px 32px;color:#333;box-shadow:none}
+  #materialHelpDialog::backdrop{background:rgba(255,255,255,.88)}
+  #materialHelpDialog h2{font-weight:400;font-size:20px;letter-spacing:.05em;margin:0 0 8px}
+  #materialHelpDialog .dialog-close{position:absolute;right:22px;top:18px;width:24px;height:24px;min-height:24px;border:0;background:transparent;font-size:20px;color:#666;padding:0}
+  #materialHelpDialog h3{font-weight:400;font-size:13px;letter-spacing:.04em;margin:18px 0 7px}
+  #materialHelpBody{font-size:10px;line-height:1.9;color:#666}
+  #materialHelpBody p{font-size:10px;line-height:1.9;color:#666;margin:7px 0}
+  #materialHelpBody code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;background:#f7f7f7;padding:1px 4px}
+  #materialHelpBody a{display:inline-block;color:#555;text-decoration:none;border-bottom:1px solid #bbb;margin:2px 9px 2px 0}
+  .material-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;margin-top:10px}
+  .material-mini-grid div{border-top:1px solid #eee;padding-top:6px}
+  .research-note{padding:8px 10px;border-left:2px solid #aaa;background:#fafafa;color:#777;margin:10px 0}
+  @media(max-width:520px){.material-mini-grid{grid-template-columns:1fr}.thread-palette-item .thread-material-box{grid-column:1 / -1}}
+
 </style>
 </head>
 <body>
@@ -352,10 +387,10 @@
       <button id="pauseBtn" class="transport-btn" type="button" aria-label="停止" title="停止">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10"/></svg><span class="sr-only">停止</span>
       </button>
-      <button id="resetBtn">最初に戻る</button><button id="prevBtn">1手戻る</button><button id="nextBtn">1手進む</button>
+      <button id="resetBtn">最初に戻る</button><button id="prevBtn">1手戻る</button><button id="nextBtn">1手進む</button><button id="prevFrameBtn" title="1/60秒相当のアニメーションフレームを戻る">1フレーム戻る</button><button id="nextFrameBtn" title="1/60秒相当のアニメーションフレームを進む">1フレーム進む</button>
     </div>
     <div class="row">
-      <label for="speedRange">速度</label><input id="speedRange" type="range" min="0.15" max="5" step="0.05" value="1.15"><span id="speedValue">1.15x</span>
+      <label for="speedRange">速度</label><input id="speedRange" type="range" min="0.10" max="5" step="0.05" value="1.00"><span id="speedValue">1.00x</span><span class="small" title="③かがりでは、この直前の版の0.5倍の内部速度を新しい1倍として扱います。">③かがり：1×＝前版0.5×</span>
     </div>
     <div id="commonControls" aria-label="共通表示設定">
       <div class="common-title">common display / 共通表示</div>
@@ -367,6 +402,7 @@
           </button>
         </span>
         <label><input type="checkbox" id="needleToggle" checked> 針の動作を表示</label>
+        <label><input type="checkbox" id="lightToggle" checked> ライト・針の影</label>
         <label><input type="checkbox" id="ghostToggle"> 完成経路を薄く予告</label>
       </div>
       <div class="needle-note">針は表面の進行方向に対して右側から入り、球内へ潜って左側へ抜ける動きを表示します。Uwagake / Sakasa など原典で上下関係が明記される工程では、現在糸の深さも上／下に変化させます。</div>
@@ -407,7 +443,14 @@
           <option value="flat">細線</option>
           <option value="round">丸断面 3D糸</option>
           <option value="texture">繊維テクスチャ</option>
+          <option value="realistic">リアリスティック3D</option>
         </select>
+        <button id="commonLineHelpBtn" class="line-help-btn" type="button" title="線種の手法と参考論文">?</button>
+      </div>
+      <div id="commonRealisticRow" class="row common-thread-setting">
+        <label for="realisticMaterialMode">リアリスティック素材</label>
+        <select id="realisticMaterialMode"></select>
+        <button id="commonMaterialHelpBtn" class="material-help-btn" type="button" title="素材モデルの手法と参考論文">?</button>
       </div>
       <div id="commonWidthRow" class="row width-row common-thread-setting">
         <label for="threadWidthRange">共通の糸の太さ</label>
@@ -420,7 +463,18 @@
         <button id="texturePickBtn" type="button">糸表面画像を選ぶ</button>
         <span id="textureStatus">画像未指定：内蔵の繊維テクスチャを使用</span>
       </div>
-      <p class="setting-help">①芯の色、②地割り糸、③かがり糸を個別に設定できます。通常は共通の線種・太さが全かがり糸に適用されます。「糸色を個別指定」では、各糸ごとに色・線種・太さを独立して設定できます。</p>
+      <p class="setting-help">①芯の色、②地割り糸、③かがり糸を個別に設定できます。通常は共通の線種・太さが全かがり糸に適用されます。「リアリスティック3D」では10種の素材構造を選べます。「糸色を個別指定」では、各糸ごとに色・線種・太さ・リアリスティック素材を独立して設定できます。</p>
+    </div>
+
+    <div id="dimensionPanel" aria-label="手まり寸法と必要糸長">
+      <div class="dimension-title">dimensions / 糸長の推定</div>
+      <div class="diameter-row">
+        <label for="diameterCm">手まり直径</label>
+        <input id="diameterCm" type="number" min="1" max="50" step="0.1" value="5.0">
+        <span>cm</span>
+      </div>
+      <div id="threadLengthSummary"></div>
+      <div class="length-note">表示値は3Dモデルの経路から求めた幾何学的な糸長です。結び代、針に残す長さ、締め込みによる増減などの作業余長は含みません。</div>
     </div>
 
     <div id="stepBox">
@@ -459,21 +513,27 @@
     <div id="dyePaletteGrid"></div>
     <div class="dye-source-footer">source: <a href="https://maitokomuro.com/iroziten/" target="_blank" rel="noopener">Maito Design Works — 草木染めの色辞典 ↗</a></div>
   </dialog>
+  <dialog id="materialHelpDialog" aria-labelledby="materialHelpTitle">
+    <button id="materialHelpClose" class="dialog-close" type="button" aria-label="閉じる">×</button>
+    <h2 id="materialHelpTitle">リアリスティック3D / method notes</h2>
+    <div id="materialHelpBody"></div>
+  </dialog>
 </div>
 <script>
 (() => {
   'use strict';
   const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
-  const patternSelect=document.getElementById('patternSelect'),playBtn=document.getElementById('playBtn'),pauseBtn=document.getElementById('pauseBtn'),resetBtn=document.getElementById('resetBtn'),prevBtn=document.getElementById('prevBtn'),nextBtn=document.getElementById('nextBtn');
-  const speedRange=document.getElementById('speedRange'),speedValue=document.getElementById('speedValue'),guideToggle=document.getElementById('guideToggle'),labelToggle=document.getElementById('labelToggle'),ghostToggle=document.getElementById('ghostToggle'),needleToggle=document.getElementById('needleToggle');
+  const patternSelect=document.getElementById('patternSelect'),playBtn=document.getElementById('playBtn'),pauseBtn=document.getElementById('pauseBtn'),resetBtn=document.getElementById('resetBtn'),prevBtn=document.getElementById('prevBtn'),nextBtn=document.getElementById('nextBtn'),prevFrameBtn=document.getElementById('prevFrameBtn'),nextFrameBtn=document.getElementById('nextFrameBtn');
+  const speedRange=document.getElementById('speedRange'),speedValue=document.getElementById('speedValue'),guideToggle=document.getElementById('guideToggle'),labelToggle=document.getElementById('labelToggle'),ghostToggle=document.getElementById('ghostToggle'),needleToggle=document.getElementById('needleToggle'),lightToggle=document.getElementById('lightToggle');
   const needleStatus=document.getElementById('needleStatus'),needleRelation=document.getElementById('needleRelation');
   const coreColor=document.getElementById('coreColor'),divisionColor=document.getElementById('divisionColor'),threadBaseColor=document.getElementById('threadBaseColor'),coreColorValue=document.getElementById('coreColorValue'),divisionColorValue=document.getElementById('divisionColorValue'),threadBaseColorValue=document.getElementById('threadBaseColorValue');
-  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),threadWidthRange=document.getElementById('threadWidthRange'),threadWidthValue=document.getElementById('threadWidthValue'),commonBaseColorRow=document.getElementById('commonBaseColorRow'),commonRenderRow=document.getElementById('commonRenderRow'),commonWidthRow=document.getElementById('commonWidthRow'),commonDisabledNotice=document.getElementById('commonDisabledNotice'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus'),threadPaletteDetails=document.getElementById('threadPaletteDetails'),threadPaletteGrid=document.getElementById('threadPaletteGrid');
+  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),threadWidthRange=document.getElementById('threadWidthRange'),threadWidthValue=document.getElementById('threadWidthValue'),commonBaseColorRow=document.getElementById('commonBaseColorRow'),commonRenderRow=document.getElementById('commonRenderRow'),commonRealisticRow=document.getElementById('commonRealisticRow'),commonWidthRow=document.getElementById('commonWidthRow'),commonDisabledNotice=document.getElementById('commonDisabledNotice'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus'),threadPaletteDetails=document.getElementById('threadPaletteDetails'),threadPaletteGrid=document.getElementById('threadPaletteGrid'),realisticMaterialMode=document.getElementById('realisticMaterialMode'),commonMaterialHelpBtn=document.getElementById('commonMaterialHelpBtn'),commonLineHelpBtn=document.getElementById('commonLineHelpBtn');
   const phaseButtons=[...document.querySelectorAll('.phase-jump')];
   const stepTitle=document.getElementById('stepTitle'),stepText=document.getElementById('stepText'),progressBar=document.getElementById('progressBar'),timelineRange=document.getElementById('timelineRange'),timelineTicks=document.getElementById('timelineTicks'),timelinePosition=document.getElementById('timelinePosition'),patternIntro=document.getElementById('patternIntro'),sourceLinks=document.getElementById('sourceLinks'),fidelityBadge=document.getElementById('fidelityBadge'),divisionBadge=document.getElementById('divisionBadge');
   const panelToggle=document.getElementById('panelToggle'),panelToggleText=document.getElementById('panelToggleText'),pointHelpBtn=document.getElementById('pointHelpBtn'),pointHelpPopover=document.getElementById('pointHelpPopover'),pointHelpClose=document.getElementById('pointHelpClose');
   const allRefsBtn=document.getElementById('allRefsBtn'),referencesDialog=document.getElementById('referencesDialog'),referencesClose=document.getElementById('referencesClose'),allReferencesList=document.getElementById('allReferencesList');
-  const dyeDialog=document.getElementById('dyeDialog'),dyeDialogClose=document.getElementById('dyeDialogClose'),dyeSearch=document.getElementById('dyeSearch'),dyePaletteGrid=document.getElementById('dyePaletteGrid');
+  const dyeDialog=document.getElementById('dyeDialog'),dyeDialogClose=document.getElementById('dyeDialogClose'),dyeSearch=document.getElementById('dyeSearch'),dyePaletteGrid=document.getElementById('dyePaletteGrid'),materialHelpDialog=document.getElementById('materialHelpDialog'),materialHelpClose=document.getElementById('materialHelpClose'),materialHelpTitle=document.getElementById('materialHelpTitle'),materialHelpBody=document.getElementById('materialHelpBody');
+  const diameterCm=document.getElementById('diameterCm'),threadLengthSummary=document.getElementById('threadLengthSummary');
 
   // ---------- vector / spherical utilities ----------
   const V=(x,y,z)=>({x,y,z});
@@ -877,7 +937,7 @@
   function populateSelect(){patternSelect.innerHTML='';let last='';for(const key of order){const p=patterns[key];if(p.category!==last){const g=document.createElement('optgroup');g.label=p.category;g.dataset.category=p.category;patternSelect.appendChild(g);last=p.category;}const g=[...patternSelect.children].find(x=>x.dataset.category===p.category);const o=document.createElement('option');o.value=key;o.textContent=p.name;g.appendChild(o);}}
   populateSelect();
 
-  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.15,showGuides:true,showLabels:true,showNeedle:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',threadWidth:1.0,customThreadColors:{},customThreadRenders:{},customThreadWidths:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
+  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.0,showGuides:true,showLabels:true,showNeedle:true,lightOn:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',threadWidth:1.0,realisticMaterial:'cotton',diameterCm:5.0,customThreadColors:{},customThreadRenders:{},customThreadWidths:{},customThreadMaterials:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
   patternSelect.value=state.key;const finished=[];
 
   function rotate(p){let{x,y,z}=p;const cy=Math.cos(state.ry),sy=Math.sin(state.ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(state.rx),sx=Math.sin(state.rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];return V(x,y,z)}
@@ -885,7 +945,7 @@
   function resize(){const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(canvas.clientWidth*dpr);canvas.height=Math.round(canvas.clientHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
   window.addEventListener('resize',resize);resize();
 
-  function polySegments(points,color,width=2,alphaFront=1,alphaBack=.15,dash=null,kind='thread'){const segs=[];for(let i=0;i<points.length-1;i++){const a=proj(points[i]),b=proj(points[i+1]),z=(a.z+b.z)/2,r=(len(points[i])+len(points[i+1]))/2;segs.push({a,b,z,r,color,width,alpha:z>=0?alphaFront:alphaBack,dash,kind})}return segs}
+  function polySegments(points,color,width=2,alphaFront=1,alphaBack=.15,dash=null,kind='thread'){const segs=[];const denom=Math.max(1,points.length-1);for(let i=0;i<points.length-1;i++){const p0=points[i],p1=points[i+1],a=proj(p0),b=proj(p1),z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2;segs.push({a,b,p0,p1,z,r,color,width,alpha:z>=0?alphaFront:alphaBack,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:i===0,isLast:i===points.length-2})}return segs}
 
   const neonPalette=['#00f5ff','#ff2bd6','#b8ff00','#ffd400','#7a5cff','#00ff9d','#ff4b3e'];
   const botanicalPalette=['#6f8792','#a86f72','#b79a63','#7f9276','#8f7d91','#9a795f','#657d73','#b08072'];
@@ -931,6 +991,59 @@
     for(const s of p.steps){const k=normalizeColorKey(s.color);if(!seen.has(k)){seen.add(k);out.push({key:k,color:s.color,title:s.title||'かがり糸'})}}
     return out;
   }
+  function sphericalPathLengthCm(points,diameter=state.diameterCm){
+    if(!points||points.length<2)return 0;
+    const R=Math.max(.01,Number(diameter)||5)/2;let angle=0;
+    for(let i=0;i<points.length-1;i++){const a=norm(points[i]),b=norm(points[i+1]);angle+=Math.acos(clamp(dot(a,b),-1,1));}
+    return angle*R;
+  }
+  function threadLengthData(){
+    const p=currentPattern(),division=p.divisionSteps.reduce((sum,s)=>sum+sphericalPathLengthCm(s.points),0);
+    const byKey=new Map();let kagariTotal=0;
+    for(const s of p.steps){const L=sphericalPathLengthCm(s.points),k=normalizeColorKey(s.color);kagariTotal+=L;byKey.set(k,(byKey.get(k)||0)+L);}
+    return{division,kagariTotal,byKey};
+  }
+  function formatLengthCm(cm){return cm>=100?`${(cm/100).toFixed(cm>=1000?2:2)} m`:`${cm.toFixed(1)} cm`;}
+  function updateThreadLengthSummary(){
+    if(!threadLengthSummary)return;const d=threadLengthData(),items=originalThreadColorsFor(state.key);
+    let html=`<div class="length-summary-row"><span>② 地割り糸</span><strong>${formatLengthCm(d.division)}</strong></div>`;
+    items.forEach((item,i)=>{const col=threadColorFor(item.color),L=d.byKey.get(item.key)||0;html+=`<div class="length-summary-row"><span><i class="length-swatch" style="background:${col}"></i>③ 糸色 ${i+1}</span><strong>${formatLengthCm(L)}</strong></div>`;});
+    html+=`<div class="length-summary-row total"><span>③ かがり糸 合計</span><strong>${formatLengthCm(d.kagariTotal)}</strong></div>`;
+    threadLengthSummary.innerHTML=html;
+  }
+  const realisticPresets={
+    hair:{name:'髪の毛',en:'Hair filament',family:'fiber',plies:1,strands:1,twist:0.15,hairiness:.22,roughness:.28,alpha:.98,metallic:0,transmission:0,irregularity:.18,highlight:.72,notes:'単一の細いstrand＋異方的ハイライト。少量のflyawayを加える。',sources:[['Stable Cosserat Rods (SIGGRAPH 2025)','https://jerryhsu.io/projects/StableCosseratRods/'],['WaveOpticsFiber (SIGGRAPH Asia 2020)','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber GitHub','https://github.com/mandyxmq/WaveOpticsFiber']]},
+    cotton:{name:'木綿糸',en:'Cotton spun yarn',family:'yarn',plies:3,strands:1,twist:6.2,hairiness:.72,roughness:.62,alpha:1,metallic:0,transmission:0,irregularity:.26,highlight:.24,notes:'3本のplyを撚り、短い毛羽とloop hairinessを重ねる。径に小さな不均一性を与える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Real-Time Knit Deformation and Rendering (SIGGRAPH 2025)','https://kuiwuchn.github.io/rtstitch'],['MADYPG GitHub (SIGGRAPH 2021)','https://github.com/kamleshbhalui/MADYPG']]},
+    linen:{name:'麻糸',en:'Linen yarn',family:'yarn',plies:2,strands:1,twist:4.4,hairiness:.38,roughness:.72,alpha:1,metallic:0,transmission:0,irregularity:.42,highlight:.18,notes:'2本plyを基調に、木綿より少ないが長い毛羽、強い径ムラと節状の不均一性を加える。',sources:[['Realistic fabric rendering with yarn models (2023)','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['Parametric 3D simulations of spun yarns and fabrics (2023)','https://www.tandfonline.com/doi/full/10.1080/00405000.2023.2230326']]},
+    yarn:{name:'一般撚り糸',en:'Generic plied yarn',family:'yarn',plies:2,strands:1,twist:5.4,hairiness:.42,roughness:.48,alpha:1,metallic:0,transmission:0,irregularity:.16,highlight:.30,notes:'fiber→ply→yarnの階層を簡略化した標準撚り糸。2本plyと中程度の毛羽。',sources:[['Real-Time Knit Deformation and Rendering (SIGGRAPH 2025)','https://kuiwuchn.github.io/rtstitch'],['Mechanics-Aware Deformation of Yarn Pattern Geometry','https://github.com/kamleshbhalui/MADYPG']]},
+    cord:{name:'紐',en:'Cord',family:'bundle',plies:3,strands:1,twist:3.4,hairiness:.16,roughness:.42,alpha:1,metallic:0,transmission:0,irregularity:.10,highlight:.34,notes:'3本の太いplyを明瞭な螺旋として表示。毛羽は少なく、撚り溝を強調。',sources:[['Stable Cosserat Rods (SIGGRAPH 2025)','https://jerryhsu.io/projects/StableCosseratRods/'],['Real-Time Knit Deformation and Rendering','https://kuiwuchn.github.io/rtstitch']]},
+    rope:{name:'縄',en:'Rope',family:'rope',plies:3,strands:3,twist:2.6,hairiness:.18,roughness:.56,alpha:1,metallic:0,transmission:0,irregularity:.12,highlight:.22,notes:'3 strandを大きな螺旋にし、各strand内部にも小さな撚りを加える二階層rope。',sources:[['Stable Cosserat Rods / YarnBall','https://github.com/jerry060599/YarnBall'],['Realistic fabric rendering with yarn models','https://journals.sagepub.com/doi/10.1177/00405175231154534']]},
+    hawser:{name:'綱',en:'Hawser / heavy rope',family:'rope',plies:4,strands:4,twist:1.9,hairiness:.12,roughness:.64,alpha:1,metallic:0,transmission:0,irregularity:.09,highlight:.20,notes:'4本以上の太いstrandを束ねた階層構造。縄より太く、外周の大きな螺旋を強調。',sources:[['Stable Cosserat Rods (SIGGRAPH 2025)','https://jerryhsu.io/projects/StableCosseratRods/'],['YarnBall GitHub','https://github.com/jerry060599/YarnBall']]},
+    piano:{name:'ピアノ線',en:'Piano wire',family:'metal',plies:1,strands:1,twist:0,hairiness:0,roughness:.08,alpha:1,metallic:1,transmission:0,irregularity:.01,highlight:.92,notes:'単一solid rod。鏡面に近い金属ハイライトと非常に小さな表面roughness。',sources:[['The Design Space of Kirchhoff Rods (SIGGRAPH Asia 2023)','https://visualcomputing.ist.ac.at/publications/2023/TDSOKR/'],['Stable Cosserat Rods GitHub','https://github.com/jerry060599/StableCosseratRods']]},
+    iron:{name:'鉄線',en:'Iron wire',family:'metal',plies:1,strands:1,twist:0,hairiness:0,roughness:.36,alpha:1,metallic:1,transmission:0,irregularity:.05,highlight:.58,notes:'単一solid rod。ピアノ線よりroughnessを大きくし、暗い拡散成分と幅広い金属ハイライトを加える。',sources:[['The Design Space of Kirchhoff Rods','https://visualcomputing.ist.ac.at/publications/2023/TDSOKR/'],['Stable Cosserat Rods','https://jerryhsu.io/projects/StableCosseratRods/']]},
+    fishing:{name:'釣り糸',en:'Fishing line',family:'dielectric',plies:1,strands:1,twist:0,hairiness:0,roughness:.05,alpha:.52,metallic:0,transmission:.88,irregularity:.01,highlight:.95,notes:'透明dielectric filament。中心を薄く、両縁と鏡面反射を明るく描き、透過感を近似。',sources:[['WaveOpticsFiber (SIGGRAPH Asia 2020)','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber GitHub','https://github.com/mandyxmq/WaveOpticsFiber'],['Stable Cosserat Rods','https://jerryhsu.io/projects/StableCosseratRods/']]}
+  };
+  const realisticMaterialOrder=['hair','cotton','linen','yarn','cord','rope','hawser','piano','iron','fishing'];
+  function populateRealisticSelect(sel,value='cotton'){
+    sel.innerHTML='';for(const k of realisticMaterialOrder){const p=realisticPresets[k],o=document.createElement('option');o.value=k;o.textContent=p.name;sel.appendChild(o)}sel.value=value in realisticPresets?value:'cotton';
+  }
+  populateRealisticSelect(realisticMaterialMode,state.realisticMaterial);
+  function lineMethodHelp(mode,material=null){
+    const generic={
+      flat:{title:'細線',body:'中心線を一定幅の2D strokeとして描く最軽量モードです。構造表現は行わず、経路確認を優先します。',sources:[]},
+      round:{title:'丸断面 3D糸',body:'暗い外周・本体色・細いハイライトを重ね、円断面のtubeをスクリーン空間で近似します。',sources:[['Mechanics-Aware Deformation of Yarn Pattern Geometry','https://github.com/kamleshbhalui/MADYPG']]},
+      texture:{title:'繊維テクスチャ',body:'丸断面表現に繊維画像／内蔵procedural textureを重ねます。幾何的なplyやstrandは生成しません。',sources:[['Realistic fabric rendering with yarn models','https://journals.sagepub.com/doi/10.1177/00405175231154534']]},
+      realistic:{title:'リアリスティック3D',body:'fiber / ply / strandの階層を、中心線の周囲を実際に螺旋移動する複数の細い3D繊維としてprocedural描画します。長い経路でも一定の撚りピッチが保たれるため、通常ズームでも撚り方向を確認できます。内部の計算用分割点は描画上の節として出さず、始点・終点と実際の折れ曲がりだけが形状変化として見えます。金属roughness、透明dielectricも素材別に近似します。Webブラウザ向けの軽量実装であり、論文のフルCosserat solverやBEM wave solverそのものではありません。',sources:[['Stable Cosserat Rods','https://jerryhsu.io/projects/StableCosseratRods/'],['Real-Time Knit Deformation and Rendering','https://kuiwuchn.github.io/rtstitch'],['WaveOpticsFiber','https://github.com/mandyxmq/WaveOpticsFiber']]}
+    };
+    if(mode!=='realistic'||!material){const g=generic[mode]||generic.flat;materialHelpTitle.textContent=g.title;const links=(g.sources||[]).map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('');materialHelpBody.innerHTML=`<p>${g.body}</p>${mode==='realistic'?'<p class="research-note">素材を選択すると、そのプリセットの構造・実装ヒント・参考論文を表示できます。</p>':''}${links?'<h3>references / code</h3>'+links:''}`;}
+    else{
+      const p=realisticPresets[material]||realisticPresets.cotton;
+      const eq=p.family==='yarn'||p.family==='bundle'||p.family==='rope'?'<code>c_j(s)=c(s)+R[cos(ωs+φ_j)n(s)+sin(ωs+φ_j)b(s)]</code>':'<code>E≈½EAε²+½EIκ²+½GJτ²</code>';
+      materialHelpTitle.textContent=`${p.name} / ${p.en}`;
+      materialHelpBody.innerHTML=`<p>${p.notes}</p><div class="research-note">このHTMLでは ${eq} の考え方を、中心線に対する複数strandのスクリーン空間オフセット、twist位相、hairiness、roughness/transmission近似へ落としています。</div><div class="material-mini-grid"><div>plies / strands<br><strong>${p.plies} / ${p.strands}</strong></div><div>twist<br><strong>${p.twist}</strong></div><div>hairiness<br><strong>${p.hairiness}</strong></div><div>roughness<br><strong>${p.roughness}</strong></div></div><h3>references / code</h3>${p.sources.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}`;
+    }
+    if(typeof materialHelpDialog.showModal==='function')materialHelpDialog.showModal();else materialHelpDialog.setAttribute('open','');
+  }
   function ensureCustomThreadColors(key=state.key){
     if(!state.customThreadColors[key])state.customThreadColors[key]={};
     for(const item of originalThreadColorsFor(key))if(!state.customThreadColors[key][item.key])state.customThreadColors[key][item.key]=item.color;
@@ -949,6 +1062,7 @@
     for(const item of originalThreadColorsFor(key))if(!(item.key in state.customThreadWidths[key]))state.customThreadWidths[key][item.key]=state.threadWidth;
     return state.customThreadWidths[key];
   }
+  function ensureCustomThreadMaterials(key=state.key){if(!state.customThreadMaterials[key])state.customThreadMaterials[key]={};for(const item of originalThreadColorsFor(key))if(!state.customThreadMaterials[key][item.key])state.customThreadMaterials[key][item.key]=state.realisticMaterial;return state.customThreadMaterials[key]}
   function ensureCustomThreadDyes(key=state.key){if(!state.customThreadDyes[key])state.customThreadDyes[key]={};return state.customThreadDyes[key]}
   function openDyePalette(key,input){activeDyeTarget={key,input};dyeSearch.value='';renderDyePalette();if(typeof dyeDialog.showModal==='function')dyeDialog.showModal();else dyeDialog.setAttribute('open','')}
   function renderDyePalette(){
@@ -959,27 +1073,32 @@
       const chip=document.createElement('span');chip.className='dye-swatch-chip';chip.style.background=c.hex;
       const label=document.createElement('span');label.className='dye-swatch-name';label.textContent=c.name;const src=document.createElement('span');src.className='dye-swatch-source';src.textContent=`${c.dye} · ${c.hex}`;label.appendChild(src);
       const a=document.createElement('a');a.className='dye-swatch-link';a.href=c.url;a.target='_blank';a.rel='noopener';a.textContent='↗';a.title=`${c.dye} の色辞典ページ`;
-      const choose=()=>{if(!activeDyeTarget)return;const map=ensureCustomThreadColors(state.key),meta=ensureCustomThreadDyes(state.key);map[activeDyeTarget.key]=c.hex;meta[activeDyeTarget.key]=c;activeDyeTarget.input.value=c.hex;renderThreadPalette();dyeDialog.close()};
+      const choose=()=>{if(!activeDyeTarget)return;const map=ensureCustomThreadColors(state.key),meta=ensureCustomThreadDyes(state.key);map[activeDyeTarget.key]=c.hex;meta[activeDyeTarget.key]=c;activeDyeTarget.input.value=c.hex;renderThreadPalette();updateThreadLengthSummary();dyeDialog.close()};
       item.addEventListener('click',e=>{if(e.target===a)return;choose()});item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}});item.append(chip,label,a);dyePaletteGrid.appendChild(item);
     }
   }
   function renderThreadPalette(){
-    const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),widths=ensureCustomThreadWidths(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
+    const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),widths=ensureCustomThreadWidths(state.key),materials=ensureCustomThreadMaterials(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
     items.forEach((item,i)=>{
       const row=document.createElement('div');row.className='thread-palette-item';
       const idx=document.createElement('span');idx.className='thread-palette-index';idx.textContent=`糸色 ${i+1}`;
       const input=document.createElement('input');input.type='color';input.value=map[item.key]||item.color;input.setAttribute('aria-label',`糸色 ${i+1}`);
-      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||state.threadRender;
+      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ'],['realistic','リアリスティック3D']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||state.threadRender;
+      const renderBox=document.createElement('span');renderBox.className='thread-render-box';const renderHelp=document.createElement('button');renderHelp.type='button';renderHelp.className='line-help-btn';renderHelp.textContent='?';renderHelp.title='この線種の手法と参考論文';renderBox.append(renderSel,renderHelp);
       const widthBox=document.createElement('span');widthBox.className='thread-width-box';
       const widthInput=document.createElement('input');widthInput.type='range';widthInput.min='0.4';widthInput.max='3.0';widthInput.step='0.1';widthInput.value=String(widths[item.key]??state.threadWidth);widthInput.setAttribute('aria-label',`糸色 ${i+1} の太さ`);
       const widthValue=document.createElement('span');widthValue.className='thread-width-value';widthValue.textContent=`${Number(widthInput.value).toFixed(1)}×`;widthBox.append(widthInput,widthValue);
       const dyeBtn=document.createElement('button');dyeBtn.type='button';dyeBtn.className='dye-palette-btn';dyeBtn.textContent='草木染め色辞典';
+      const materialBox=document.createElement('span');materialBox.className='thread-material-box';const materialSel=document.createElement('select');materialSel.className='thread-material-select';populateRealisticSelect(materialSel,materials[item.key]||state.realisticMaterial);const materialHelp=document.createElement('button');materialHelp.type='button';materialHelp.className='material-help-btn';materialHelp.textContent='?';materialHelp.title='素材モデルの手法と参考論文';materialBox.append(materialSel,materialHelp);materialBox.hidden=renderSel.value!=='realistic';row.classList.toggle('realistic-active',renderSel.value==='realistic');
       const lab=document.createElement('span');lab.className='thread-palette-label';lab.textContent=item.title;lab.title=item.title;
-      input.addEventListener('input',()=>{map[item.key]=input.value;delete dyes[item.key];renderThreadPalette()});
-      renderSel.addEventListener('change',()=>{renders[item.key]=renderSel.value;updateThreadControlState()});
+      input.addEventListener('input',()=>{map[item.key]=input.value;delete dyes[item.key];renderThreadPalette();updateThreadLengthSummary()});
+      renderSel.addEventListener('change',()=>{renders[item.key]=renderSel.value;materialBox.hidden=renderSel.value!=='realistic';row.classList.toggle('realistic-active',renderSel.value==='realistic');updateThreadControlState()});
+      renderHelp.addEventListener('click',()=>lineMethodHelp(renderSel.value,renderSel.value==='realistic'?materialSel.value:null));
+      materialSel.addEventListener('change',()=>{materials[item.key]=materialSel.value});
+      materialHelp.addEventListener('click',()=>lineMethodHelp('realistic',materialSel.value));
       widthInput.addEventListener('input',()=>{widths[item.key]=parseFloat(widthInput.value);widthValue.textContent=`${Number(widthInput.value).toFixed(1)}×`});
       dyeBtn.addEventListener('click',()=>openDyePalette(item.key,input));
-      row.append(idx,input,renderSel,widthBox,dyeBtn,lab);
+      row.append(idx,input,renderBox,widthBox,dyeBtn,materialBox,lab);
       if(dyes[item.key]){const c=dyes[item.key],a=document.createElement('a');a.className='dye-selected-link';a.href=c.url;a.target='_blank';a.rel='noopener';a.textContent=`${c.name}｜${c.dye} ↗`;row.appendChild(a)}
       threadPaletteGrid.appendChild(row);
     });
@@ -999,6 +1118,7 @@
     if(state.threadColor==='custom'){const map=ensureCustomThreadWidths(state.key),v=Number(map[normalizeColorKey(source)]);if(Number.isFinite(v))return v}
     return state.threadWidth;
   }
+  function threadMaterialFor(source){if(state.threadColor==='custom'){const map=ensureCustomThreadMaterials(state.key);return map[normalizeColorKey(source)]||state.realisticMaterial}return state.realisticMaterial}
 
 
   let yarnPattern=null;
@@ -1006,13 +1126,88 @@
   yarnPattern=makeProceduralYarnPattern();
 
   function strokeOne(s,color,width,alpha,styleOptions={}){
-    ctx.save();ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(s.dash||[]);
+    // A stitched thread is continuous between true turning points.  The path is
+    // internally tessellated into many short screen-space segments, but those
+    // tessellation boundaries must never look like knots / joints.  Therefore
+    // only the true start/end of a complete path receive rounded caps; every
+    // internal segment uses a butt cap so adjacent segments meet seamlessly.
+    const cap=styleOptions.cap||(s.isFirst||s.isLast?'round':'butt');
+    ctx.save();ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=width;ctx.lineCap=cap;ctx.lineJoin='miter';ctx.setLineDash(s.dash||[]);
     if(styleOptions.shadow){ctx.shadowColor=color;ctx.shadowBlur=styleOptions.shadow;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0}
     ctx.stroke();ctx.restore();
+  }
+  function screenNormal(s){const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,L=Math.hypot(dx,dy)||1;return{x:-dy/L,y:dx/L,tx:dx/L,ty:dy/L,L};}
+  function offsetSegment(s,offA,offB=offA){const n=screenNormal(s);return{...s,a:{...s.a,x:s.a.x+n.x*offA,y:s.a.y+n.y*offA},b:{...s.b,x:s.b.x+n.x*offB,y:s.b.y+n.y*offB}}}
+  function tintRgb(color,amount){const m=/^#([0-9a-f]{6})$/i.exec(color);if(!m)return color;const n=parseInt(m[1],16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;const target=amount>=0?255:0,t=Math.abs(amount);return `rgb(${Math.round(r+(target-r)*t)},${Math.round(g+(target-g)*t)},${Math.round(b+(target-b)*t)})`}
+  function drawFlyaway(s,color,w,alpha,preset){if(preset.hairiness<=0)return;const h=stringHash(`${s.segIndex}:${s.color}:${state.key}`),freq=preset.family==='yarn'?5:3,count=Math.max(0,Math.round(preset.hairiness*2.4));for(let j=0;j<count;j++){if(((h+j*31)%freq)>1)continue;const n=screenNormal(s),side=((h>>j)&1)?1:-1,amp=(2.4+((h>>4)%7)*.35)*preset.hairiness*w*.34,phase=((h%628)/100)+j;const offA=Math.sin((s.u||0)*18+phase)*amp*.25,offB=side*amp+Math.cos((s.u||0)*21+phase)*amp*.3;const fs=offsetSegment(s,offA,offB);strokeOne(fs,tintRgb(color,.12),Math.max(.35,w*.12),alpha*(.18+.28*preset.hairiness));}}
+  function realisticDetail(p){
+    if(p.family==='yarn')return{fibers:p.name==='木綿糸'?5:(p.name==='麻糸'?4:5),turnPerSeg:p.name==='木綿糸'?.145:(p.name==='麻糸'?.115:.155),microTurn:.31};
+    if(p.family==='bundle')return{fibers:3,turnPerSeg:.105,microTurn:.24};
+    if(p.family==='rope')return{fibers:p.name==='綱'?3:3,turnPerSeg:p.name==='綱'?.060:.078,microTurn:.19};
+    return{fibers:1,turnPerSeg:0,microTurn:0};
+  }
+  function segmentBasis3D(p0,p1){
+    const t=norm(sub(p1,p0)),r0=norm(p0),r1=norm(p1);let b0=norm(cross(t,r0)),b1=norm(cross(t,r1));
+    if(len(b0)<1e-5)b0=tangentBasis(r0).u;if(len(b1)<1e-5)b1=tangentBasis(r1).u;
+    return{t,r0,r1,b0,b1};
+  }
+  function helixProjectedSegment(s,rad0,side0,rad1,side1){
+    if(!s.p0||!s.p1)return offsetSegment(s,side0*6,side1*6);
+    const B=segmentBasis3D(s.p0,s.p1),baseWorld=.00135*Math.max(1,wCurrentRealistic||1);
+    const lift=baseWorld*1.15;
+    const q0=add(add(scale(norm(s.p0),len(s.p0)+lift+rad0*baseWorld),scale(B.b0,side0*baseWorld)),V(0,0,0));
+    const q1=add(add(scale(norm(s.p1),len(s.p1)+lift+rad1*baseWorld),scale(B.b1,side1*baseWorld)),V(0,0,0));
+    const a=proj(q0),b=proj(q1);return{...s,a,b,p0:q0,p1:q1,z:(a.z+b.z)/2,r:(len(q0)+len(q1))/2};
+  }
+  let wCurrentRealistic=1;
+  function drawRealisticThread(s,c,w,a,material){
+    const p=realisticPresets[material]||realisticPresets.cotton;wCurrentRealistic=w;
+    if(p.family==='metal'){
+      strokeOne(s,tintRgb(c,-.56),w+2.0,a*.58);strokeOne(s,p.name==='ピアノ線'?tintRgb(c,.34):tintRgb(c,-.16),w+1.05,a*.96);
+      const hs=offsetSegment(s,-w*.16,-w*.16);strokeOne(hs,'rgba(255,255,255,.96)',Math.max(.45,w*(.18+.12*p.highlight)),a*(.38+.48*p.highlight));
+      const shade=offsetSegment(s,w*.28,w*.28);strokeOne(shade,'rgba(0,0,0,.42)',Math.max(.35,w*.16),a*(.18+.28*p.roughness));return;
+    }
+    if(p.family==='dielectric'){
+      strokeOne(s,'rgba(35,55,65,.24)',w+1.2,a*.25);strokeOne(s,c,Math.max(.7,w*.42),a*.28);
+      strokeOne(offsetSegment(s,-w*.34),'rgba(255,255,255,.94)',Math.max(.42,w*.18),a*.80);strokeOne(offsetSegment(s,w*.34),'rgba(235,250,255,.82)',Math.max(.38,w*.16),a*.68);return;
+    }
+    if(p.family==='fiber'){
+      strokeOne(s,tintRgb(c,-.35),Math.max(.65,w*.72),a*.55);strokeOne(offsetSegment(s,-w*.09),c,Math.max(.5,w*.52),a*.95);strokeOne(offsetSegment(s,-w*.18),'rgba(255,255,255,.82)',Math.max(.28,w*.11),a*.55);drawFlyaway(s,c,w,a,p);return;
+    }
+    const D=realisticDetail(p),outerCount=p.family==='rope'?p.strands:p.plies,outerRadius=p.family==='rope'?1.7:1.25;
+    // Only a faint silhouette; the visible body is made of the individual fibres below.
+    strokeOne(s,tintRgb(c,-.48),w+1.4,a*.11);
+    const fibreSegments=[];
+    for(let j=0;j<outerCount;j++){
+      const phase0=2*Math.PI*(D.turnPerSeg*(s.segIndex||0))+j*2*Math.PI/outerCount;
+      const phase1=2*Math.PI*(D.turnPerSeg*((s.segIndex||0)+1))+j*2*Math.PI/outerCount;
+      const depth=(Math.cos(phase0)+Math.cos(phase1))*.5;
+      // Rope/cord gets a subtle strand core, but it remains narrow enough that fine fibres stay visible.
+      const core0r=Math.cos(phase0)*outerRadius,core0s=Math.sin(phase0)*outerRadius,core1r=Math.cos(phase1)*outerRadius,core1s=Math.sin(phase1)*outerRadius;
+      if(p.family==='rope'||p.family==='bundle'){
+        const coreSeg=helixProjectedSegment(s,core0r,core0s,core1r,core1s);fibreSegments.push({seg:coreSeg,width:Math.max(.45,w*(p.family==='rope'?.16:.14)),color:tintRgb(c,depth*.13),alpha:a*.42,depth:depth-.2});
+      }
+      for(let k=0;k<D.fibers;k++){
+        const micro0=-2.25*phase0+2*Math.PI*k/D.fibers+2*Math.PI*D.microTurn*(s.segIndex||0);
+        const micro1=-2.25*phase1+2*Math.PI*k/D.fibers+2*Math.PI*D.microTurn*((s.segIndex||0)+1);
+        const microR=p.family==='rope'?.42:(p.family==='bundle'?.36:.32);
+        const r0=core0r+Math.cos(micro0)*microR,s0=core0s+Math.sin(micro0)*microR;
+        const r1=core1r+Math.cos(micro1)*microR,s1=core1s+Math.sin(micro1)*microR;
+        const fs=helixProjectedSegment(s,r0,s0,r1,s1),fd=(Math.cos(phase0)+Math.cos(phase1)+.45*Math.cos(micro0)+.45*Math.cos(micro1))/2.9;
+        const shade=clamp(fd*.18,-.16,.22);fibreSegments.push({seg:fs,width:Math.max(.34,Math.min(1.15,w*(p.family==='rope'?.055:.065))),color:tintRgb(c,shade),alpha:a*(.72+.2*Math.max(0,fd)),depth:fd});
+      }
+    }
+    // Back fibres first, front fibres last. This is the cross-section's own twist order, not the camera-depth ordering between stitched threads.
+    fibreSegments.sort((x,y)=>x.depth-y.depth);
+    for(const f of fibreSegments)strokeOne(f.seg,f.color,f.width,f.alpha);
+    // A few longitudinal glints make each individual fibre readable at normal zoom.
+    if(w>3.2){for(let j=0;j<outerCount;j++){const ph0=2*Math.PI*(D.turnPerSeg*(s.segIndex||0))+j*2*Math.PI/outerCount,ph1=2*Math.PI*(D.turnPerSeg*((s.segIndex||0)+1))+j*2*Math.PI/outerCount;const gl=helixProjectedSegment(s,Math.cos(ph0)*outerRadius,Math.sin(ph0)*outerRadius,Math.cos(ph1)*outerRadius,Math.sin(ph1)*outerRadius);strokeOne(gl,'rgba(255,255,255,.68)',Math.max(.22,w*.035),a*(.18+.22*p.highlight));}}
+    drawFlyaway(s,c,w,a,p);
   }
   function drawThreadSegment(s){
     const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale*threadWidthFor(s.color),c=threadColorFor(s.color),a=s.alpha;
     const renderMode=threadRenderFor(s.color);
+    if(renderMode==='realistic'){drawRealisticThread(s,c,w,a,threadMaterialFor(s.color));return;}
     if(renderMode==='round'){
       strokeOne(s,'rgba(25,25,25,.72)',w+2.0,a*.34);
       strokeOne(s,c,w+1.05,a);
@@ -1022,7 +1217,7 @@
     if(renderMode==='texture'){
       strokeOne(s,'rgba(30,30,30,.55)',w+1.7,a*.28);
       strokeOne(s,c,w+1.0,a*.94);
-      if(yarnPattern){ctx.save();ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle=yarnPattern;ctx.globalAlpha=a*.48;ctx.lineWidth=w+.55;ctx.lineCap='round';ctx.setLineDash([]);ctx.stroke();ctx.restore()}
+      if(yarnPattern){ctx.save();ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle=yarnPattern;ctx.globalAlpha=a*.48;ctx.lineWidth=w+.55;ctx.lineCap=(s.isFirst||s.isLast)?'round':'butt';ctx.lineJoin='miter';ctx.setLineDash([]);ctx.stroke();ctx.restore()}
       strokeOne(s,'rgba(255,255,255,.92)',Math.max(.5,w*.18),a*.18);
       return;
     }
@@ -1043,7 +1238,12 @@
     const vis=coreVisibility();if(vis<=.001)return;
     const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom,r=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY,rr=r*(.94+.06*vis);
     ctx.save();ctx.globalAlpha=vis;ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.clip();
-    const g=ctx.createRadialGradient(cx-rr*.34,cy-rr*.38,rr*.05,cx,cy,rr*1.08);g.addColorStop(0,mixHex(state.coreColor,'#ffffff',.46));g.addColorStop(.52,state.coreColor);g.addColorStop(1,mixHex(state.coreColor,'#222222',.20));ctx.fillStyle=g;ctx.fillRect(cx-rr,cy-rr,rr*2,rr*2);
+    if(state.lightOn){
+      const g=ctx.createRadialGradient(cx-rr*.34,cy-rr*.38,rr*.05,cx,cy,rr*1.08);g.addColorStop(0,mixHex(state.coreColor,'#ffffff',.46));g.addColorStop(.52,state.coreColor);g.addColorStop(1,mixHex(state.coreColor,'#222222',.20));ctx.fillStyle=g;
+    }else{
+      ctx.fillStyle=state.coreColor;
+    }
+    ctx.fillRect(cx-rr,cy-rr,rr*2,rr*2);
     // Fine wound-thread texture: fixed to the sphere silhouette, so the ball does not change diameter during rotation.
     ctx.lineCap='round';for(let i=-18;i<=18;i++){const yy=cy+i*rr/19;const span=Math.sqrt(Math.max(0,rr*rr-(yy-cy)*(yy-cy)));ctx.beginPath();ctx.moveTo(cx-span,yy);ctx.bezierCurveTo(cx-span*.35,yy-rr*.04*Math.sin(i*.8),cx+span*.35,yy+rr*.04*Math.sin(i*.8),cx+span,yy);ctx.strokeStyle=i%3===0?'rgba(255,255,255,.18)':'rgba(40,40,40,.055)';ctx.lineWidth=.65;ctx.stroke()}
     for(let i=-9;i<=9;i++){const xx=cx+i*rr/10;const span=Math.sqrt(Math.max(0,rr*rr-(xx-cx)*(xx-cx)));ctx.beginPath();ctx.moveTo(xx,cy-span);ctx.bezierCurveTo(xx+rr*.035*Math.sin(i),cy-span*.35,xx-rr*.035*Math.sin(i),cy+span*.35,xx,cy+span);ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=.45;ctx.stroke()}
@@ -1139,7 +1339,12 @@
     const relation=inferStitchRelation(step);
     const anim=computeAnimatedStepState(step,progress);
     let tail,dir,contact,threadResume='surface';
-    const needleLen=.48, surfaceR=1.014;
+    // Needle geometry: cone height : base diameter = 50 : 1.
+    // The rounded rear pole of the hemisphere is the actual thread-attachment point.
+    const totalLen=.48;
+    const coneHeight=totalLen/(1+1/100);
+    const baseRadius=coneHeight/100;
+    const surfaceR=1.014;
     if(anim.anchors){
       const prevDir=tangentDirAtPoint(anim.from,anim.to,anim.to);
       const nextDir=anim.next?tangentDirAtPoint(anim.to,anim.next,anim.to):prevDir;
@@ -1179,33 +1384,111 @@
       if(relation==='under')dir=slerpVec(dir,scale(fr.n,-1),.08);
     }
     dir=norm(dir);
-    const tip=add(tail,scale(dir,needleLen));
-    const samples=26,segs=[];
-    for(let i=0;i<samples;i++){
-      const t0=i/(samples-1),t1=(i+1)/(samples-1); if(t1>1) break;
-      const p0=add(tail,scale(dir,needleLen*t0)), p1=add(tail,scale(dir,needleLen*t1));
-      const a=proj(p0),b=proj(p1),z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2;
-      const w0=(1-t0)*3.2+.22,w1=(1-t1)*3.2+.15;
-      segs.push({a,b,z,r,width:(w0+w1)/2,p0,p1});
-    }
-    return{segs,tail,tip,dir,contact,relation,threadResume};
+    // Hemisphere flat face/base of cone is one radius forward from the rounded rear pole.
+    const baseCenter=add(tail,scale(dir,baseRadius));
+    const tip=add(baseCenter,scale(dir,coneHeight));
+    return{tail,baseCenter,tip,dir,contact,relation,threadResume,totalLen,coneHeight,baseRadius};
   }
-  function drawNeedleSegments(segs,visibleOnly){
-    if(!segs)return;
-    for(const s of segs){
-      const visible=(len(s.p0)>=1.0005||len(s.p1)>=1.0005)&&s.z>=.285;
-      if(visibleOnly!==visible)continue;
-      ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
-      ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle='rgba(48,48,48,.82)';ctx.lineWidth=s.width+1.0;ctx.stroke();
-      ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle='rgba(220,221,223,.98)';ctx.lineWidth=s.width;ctx.stroke();
-      ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle='rgba(255,255,255,.88)';ctx.lineWidth=Math.max(.22,s.width*.18);ctx.stroke();
+  function needleProfileRadius(model,t){
+    const x=clamp(t,0,1)*model.totalLen;
+    const r=model.baseRadius,h=model.coneHeight;
+    if(x<=r){
+      // Rear hemisphere: rounded pole at x=0, flat face at x=r.
+      const dx=x-r;
+      return Math.sqrt(Math.max(0,r*r-dx*dx));
+    }
+    const u=clamp((x-r)/h,0,1);
+    return r*(1-u);
+  }
+  function needleWorldPoint(model,t){return add(model.tail,scale(model.dir,model.totalLen*clamp(t,0,1)))}
+  function needlePerpBasis(model){
+    const refs=[V(0,1,0),V(1,0,0),V(0,0,1)];
+    let best=null,bestLen=0;
+    for(const ref of refs){const c=cross(model.dir,ref),L=len(c);if(L>bestLen){bestLen=L;best=c}}
+    return norm(best||V(0,0,1));
+  }
+  function needleProjectedRadius(model,center,t){
+    const rr=needleProfileRadius(model,t);if(rr<=0)return 0;
+    const b1=needlePerpBasis(model),b2=norm(cross(model.dir,b1)),q=proj(center);
+    const q1=proj(add(center,scale(b1,rr))),q2=proj(add(center,scale(b2,rr)));
+    return Math.max(Math.hypot(q1.x-q.x,q1.y-q.y),Math.hypot(q2.x-q.x,q2.y-q.y),.15);
+  }
+  function needleRuns(model,frontOnly){
+    const N=96,runs=[];let a=null,prevT=0;
+    for(let i=0;i<=N;i++){
+      const t=i/N,p=needleWorldPoint(model,t),q=proj(p);
+      const front=(len(p)>=1.0005 && q.z>=.285);
+      const on=frontOnly?front:true;
+      if(on&&a===null)a=t;
+      if((!on||i===N)&&a!==null){const b=(!on?prevT:t);if(b-a>1e-5)runs.push([a,b]);a=null}
+      prevT=t;
+    }
+    return runs;
+  }
+  function drawNeedleSolidRun(model,a,b,alpha=1){
+    if(b<=a)return;
+    const N=Math.max(12,Math.ceil((b-a)*64)),samples=[];
+    for(let i=0;i<=N;i++){const t=a+(b-a)*i/N,wp=needleWorldPoint(model,t),q=proj(wp),rpx=needleProjectedRadius(model,wp,t);samples.push({t,wp,q,rpx})}
+    const qTail=proj(model.tail),qTip=proj(model.tip),ax=qTip.x-qTail.x,ay=qTip.y-qTail.y,al=Math.hypot(ax,ay)||1;
+    const px=-ay/al,py=ax/al;
+    const upper=samples.map(s=>({x:s.q.x+px*s.rpx,y:s.q.y+py*s.rpx}));
+    const lower=samples.map(s=>({x:s.q.x-px*s.rpx,y:s.q.y-py*s.rpx})).reverse();
+    const mid=samples[Math.floor(samples.length/2)],maxR=Math.max(...samples.map(s=>s.rpx),.5);
+    const grad=ctx.createLinearGradient(mid.q.x-px*maxR,mid.q.y-py*maxR,mid.q.x+px*maxR,mid.q.y+py*maxR);
+    grad.addColorStop(0,'rgba(55,60,65,.98)');
+    grad.addColorStop(.18,'rgba(155,162,168,.98)');
+    grad.addColorStop(.44,'rgba(250,252,253,1)');
+    grad.addColorStop(.63,'rgba(190,196,201,.99)');
+    grad.addColorStop(1,'rgba(60,65,70,.98)');
+    ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.moveTo(upper[0].x,upper[0].y);for(let i=1;i<upper.length;i++)ctx.lineTo(upper[i].x,upper[i].y);for(const pt of lower)ctx.lineTo(pt.x,pt.y);ctx.closePath();ctx.fillStyle=grad;ctx.fill();ctx.strokeStyle='rgba(45,49,53,.85)';ctx.lineWidth=.75;ctx.stroke();
+    // One continuous specular highlight, not per-segment, so the needle has no artificial joints.
+    ctx.beginPath();for(let i=0;i<samples.length;i++){const s=samples[i],off=s.rpx*.34,x=s.q.x+px*off,y=s.q.y+py*off;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='rgba(255,255,255,.78)';ctx.lineWidth=.55;ctx.stroke();ctx.restore();
+  }
+  function drawNeedleSolid(model,frontOnly){
+    if(!model||!state.showNeedle)return;
+    const runs=needleRuns(model,frontOnly);
+    for(const [a,b] of runs)drawNeedleSolidRun(model,a,b,frontOnly?1:.96);
+  }
+  function raySphereIntersection(p,d,r=1.002){
+    const dd=dot(d,d),b=2*dot(p,d),c=dot(p,p)-r*r,disc=b*b-4*dd*c;
+    if(disc<0)return null;
+    const s=Math.sqrt(disc),t1=(-b-s)/(2*dd),t2=(-b+s)/(2*dd);
+    let t=Infinity;if(t1>1e-5)t=t1;if(t2>1e-5&&t2<t)t=t2;
+    return Number.isFinite(t)?add(p,scale(d,t)):null;
+  }
+  function drawNeedleShadow(model){
+    if(!state.lightOn||!state.showNeedle||!model)return;
+    // Direction travelled by light from an upper-left/front source toward the temari.
+    const lightRay=norm(V(.34,-.58,-.74)),N=54,runs=[];let run=[];
+    for(let i=0;i<=N;i++){
+      const t=i/N,p=needleWorldPoint(model,t);
+      if(len(p)<1.0005){if(run.length>1)runs.push(run);run=[];continue}
+      const hit=raySphereIntersection(p,lightRay,1.003);
+      if(!hit){if(run.length>1)runs.push(run);run=[];continue}
+      const q=proj(hit);
+      // Only the visible hemisphere receives a visible shadow in this 2D projection.
+      if(q.z<.285){if(run.length>1)runs.push(run);run=[];continue}
+      run.push({q,t});
+    }
+    if(run.length>1)runs.push(run);
+    // Clip the shadow to the visible temari silhouette, then build it from several
+    // very soft, low-opacity passes. This avoids the hard-edged 'sticker' shadow.
+    const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom;
+    const sphereR=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY;
+    for(const pts of runs){
+      const midT=pts[Math.floor(pts.length/2)].t,midP=needleWorldPoint(model,midT),rp=needleProjectedRadius(model,midP,midT);
+      ctx.save();
+      ctx.beginPath();ctx.arc(cx,cy,sphereR,0,Math.PI*2);ctx.clip();
+      ctx.lineCap='round';ctx.lineJoin='round';
+      const trace=()=>{ctx.beginPath();pts.forEach((s,i)=>i?ctx.lineTo(s.q.x,s.q.y):ctx.moveTo(s.q.x,s.q.y))};
+      // Wide penumbra.
+      trace();ctx.strokeStyle='rgba(26,23,20,.025)';ctx.lineWidth=Math.max(5,rp*3.2);ctx.shadowColor='rgba(22,19,17,.16)';ctx.shadowBlur=Math.max(16,rp*8.5);ctx.stroke();
+      // Mid-softness layer.
+      trace();ctx.strokeStyle='rgba(26,23,20,.035)';ctx.lineWidth=Math.max(3,rp*2.1);ctx.shadowColor='rgba(22,19,17,.13)';ctx.shadowBlur=Math.max(10,rp*5.5);ctx.stroke();
+      // Very faint contact core; kept blurred so no crisp outline remains.
+      trace();ctx.strokeStyle='rgba(24,21,18,.045)';ctx.lineWidth=Math.max(1.5,rp*1.15);ctx.shadowColor='rgba(20,18,16,.10)';ctx.shadowBlur=Math.max(6,rp*3.8);ctx.stroke();
       ctx.restore();
     }
-  }
-  function drawNeedleCap(model){
-    if(!model||!state.showNeedle)return;
-    const q=proj(model.tail);if(len(model.tail)<1.0005||q.z<.285)return;
-    ctx.save();ctx.beginPath();ctx.arc(q.x,q.y,3.3,0,Math.PI*2);ctx.fillStyle='rgba(238,239,240,.97)';ctx.strokeStyle='rgba(70,70,70,.84)';ctx.lineWidth=.9;ctx.fill();ctx.stroke();ctx.restore();
   }
   function updateNeedleStatus(step){
     if(!state.showNeedle||!step||step.kind==='core'){needleStatus.hidden=true;return}
@@ -1229,6 +1512,9 @@
         const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a);
       }
     }
+    const rh=document.createElement('h3');rh.textContent='Realistic 3D rendering / physics references';allReferencesList.appendChild(rh);
+    const rrefs=[['Stable Cosserat Rods — SIGGRAPH 2025','https://jerryhsu.io/projects/StableCosseratRods/'],['Stable Cosserat Rods — GitHub','https://github.com/jerry060599/StableCosseratRods'],['YarnBall — GitHub','https://github.com/jerry060599/YarnBall'],['Real-Time Knit Deformation and Rendering — SIGGRAPH 2025','https://kuiwuchn.github.io/rtstitch'],['Mechanics-Aware Deformation of Yarn Pattern Geometry — GitHub','https://github.com/kamleshbhalui/MADYPG'],['Realistic fabric rendering with yarn models — 2023','https://journals.sagepub.com/doi/10.1177/00405175231154534'],['A Wave Optics Based Fiber Scattering Model','https://mandyxmq.github.io/research/wavefiber.html'],['WaveOpticsFiber — GitHub','https://github.com/mandyxmq/WaveOpticsFiber'],['The Design Space of Kirchhoff Rods — SIGGRAPH Asia 2023','https://visualcomputing.ist.ac.at/publications/2023/TDSOKR/']];
+    for(const [label,url] of rrefs){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a)}
     const h=document.createElement('h3');h.textContent='TemariKai indexes';allReferencesList.appendChild(h);
     for(const [label,url] of globalReferences){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=`${label} ↗`;allReferencesList.appendChild(a)}
   }
@@ -1256,9 +1542,37 @@
   function back(){state.playing=false;if(state.stepProgress>.02){state.stepProgress=0}else if(state.stepIndex>0){state.stepIndex--;state.stepProgress=0;rebuildFinished()}updateUI()}
   function jumpToPhase(ph){const p=currentPattern(),idx=p.phaseStarts[ph]??0;state.playing=false;state.stepIndex=idx;state.stepProgress=0;rebuildFinished();updateUI()}
 
+  function phasePlaybackScale(step){return step&&step.phase===3?.25:1}
+  function effectivePlaybackRate(step){return state.speed*phasePlaybackScale(step)}
+  function nudgeOneFrame(direction){
+    state.playing=false;
+    const seq=sequence();if(!seq.length)return;
+    let remaining=1/60;
+    if(direction>0){
+      if(state.stepIndex>=seq.length)return;
+      while(remaining>1e-9&&state.stepIndex<seq.length){
+        const s=seq[state.stepIndex],rate=phasePlaybackScale(s),secondsLeft=(1-state.stepProgress)*s.duration/rate;
+        if(remaining<secondsLeft){state.stepProgress+=remaining*rate/s.duration;remaining=0}
+        else{remaining-=secondsLeft;state.stepIndex++;state.stepProgress=0}
+      }
+    }else{
+      if(state.stepIndex>=seq.length){state.stepIndex=seq.length-1;state.stepProgress=1}
+      while(remaining>1e-9&&state.stepIndex>=0){
+        const s=seq[state.stepIndex],rate=phasePlaybackScale(s),secondsUsed=state.stepProgress*s.duration/rate;
+        if(remaining<=secondsUsed){state.stepProgress-=remaining*rate/s.duration;remaining=0}
+        else{
+          remaining-=secondsUsed;state.stepIndex--;
+          if(state.stepIndex<0){state.stepIndex=0;state.stepProgress=0;remaining=0;break}
+          state.stepProgress=1;
+        }
+      }
+    }
+    rebuildFinished();updateUI();
+  }
+
 
   patternSelect.addEventListener('change',e=>loadPattern(e.target.value));
-  playBtn.addEventListener('click',()=>{if(state.stepIndex>=sequence().length)reset();state.playing=true});pauseBtn.addEventListener('click',()=>state.playing=false);resetBtn.addEventListener('click',reset);prevBtn.addEventListener('click',back);nextBtn.addEventListener('click',()=>{state.playing=false;if(state.stepIndex<sequence().length){state.stepProgress=1;advance()}});
+  playBtn.addEventListener('click',()=>{if(state.stepIndex>=sequence().length)reset();state.playing=true});pauseBtn.addEventListener('click',()=>state.playing=false);resetBtn.addEventListener('click',reset);prevBtn.addEventListener('click',back);nextBtn.addEventListener('click',()=>{state.playing=false;if(state.stepIndex<sequence().length){state.stepProgress=1;advance()}});prevFrameBtn.addEventListener('click',()=>nudgeOneFrame(-1));nextFrameBtn.addEventListener('click',()=>nudgeOneFrame(1));
   phaseButtons.forEach(b=>b.addEventListener('click',()=>jumpToPhase(Number(b.dataset.phase))));
 
   panelToggle.addEventListener('click',()=>{
@@ -1278,26 +1592,33 @@
   dyeDialog.addEventListener('click',e=>{const r=dyeDialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dyeDialog.close()});
   dyeSearch.addEventListener('input',renderDyePalette);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')setPointHelp(false)});
-  speedRange.addEventListener('input',e=>{state.speed=parseFloat(e.target.value);speedValue.textContent=state.speed.toFixed(2)+'x'});guideToggle.addEventListener('change',e=>state.showGuides=e.target.checked);labelToggle.addEventListener('change',e=>state.showLabels=e.target.checked);needleToggle.addEventListener('change',e=>{state.showNeedle=e.target.checked;if(!state.showNeedle)needleStatus.hidden=true});ghostToggle.addEventListener('change',e=>state.ghost=e.target.checked);
-  function bindColor(input,valueEl,key){const update=()=>{state[key]=input.value;valueEl.textContent=input.value.toUpperCase()};input.addEventListener('input',update);update()}
+  speedRange.addEventListener('input',e=>{state.speed=parseFloat(e.target.value);speedValue.textContent=state.speed.toFixed(2)+'x'});guideToggle.addEventListener('change',e=>state.showGuides=e.target.checked);labelToggle.addEventListener('change',e=>state.showLabels=e.target.checked);needleToggle.addEventListener('change',e=>{state.showNeedle=e.target.checked;if(!state.showNeedle)needleStatus.hidden=true});lightToggle.addEventListener('change',e=>state.lightOn=e.target.checked);ghostToggle.addEventListener('change',e=>state.ghost=e.target.checked);
+  function bindColor(input,valueEl,key){const update=()=>{state[key]=input.value;valueEl.textContent=input.value.toUpperCase();if(key==='threadBaseColor'&&typeof updateThreadLengthSummary==='function')updateThreadLengthSummary()};input.addEventListener('input',update);update()}
   bindColor(coreColor,coreColorValue,'coreColor');bindColor(divisionColor,divisionColorValue,'divisionColor');bindColor(threadBaseColor,threadBaseColorValue,'threadBaseColor');
+  diameterCm.addEventListener('input',()=>{state.diameterCm=clamp(parseFloat(diameterCm.value)||5,1,50);updateThreadLengthSummary()});
   function updateThreadControlState(){
     const custom=state.threadColor==='custom';
-    for(const el of [threadBaseColor,threadRenderMode,threadWidthRange])el.disabled=custom;
-    for(const row of [commonBaseColorRow,commonRenderRow,commonWidthRow])row.classList.toggle('inactive',custom);
+    for(const el of [threadBaseColor,threadRenderMode,threadWidthRange,realisticMaterialMode])el.disabled=custom;
+    for(const row of [commonBaseColorRow,commonRenderRow,commonRealisticRow,commonWidthRow])row.classList.toggle('inactive',custom);
     commonDisabledNotice.classList.toggle('visible',custom);
     threadPaletteDetails.style.opacity=custom?'1':'.45';
     threadPaletteDetails.style.pointerEvents=custom?'auto':'none';
     if(custom){
-      ensureCustomThreadRenders(state.key);ensureCustomThreadWidths(state.key);renderThreadPalette();threadPaletteDetails.open=true;
+      ensureCustomThreadRenders(state.key);ensureCustomThreadWidths(state.key);ensureCustomThreadMaterials(state.key);renderThreadPalette();threadPaletteDetails.open=true;
     }else{
       threadPaletteDetails.open=false;
     }
     const customHasTexture=custom&&Object.values(state.customThreadRenders[state.key]||{}).some(v=>v==='texture');
+    commonRealisticRow.classList.toggle('visible',!custom&&state.threadRender==='realistic');
     textureRow.hidden=!(state.threadRender==='texture'&&!custom)&&!customHasTexture;
   }
-  threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;updateThreadControlState()});
+  threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;updateThreadControlState();updateThreadLengthSummary()});
   threadRenderMode.addEventListener('change',e=>{state.threadRender=e.target.value;updateThreadControlState()});
+  realisticMaterialMode.addEventListener('change',e=>state.realisticMaterial=e.target.value);
+  commonMaterialHelpBtn.addEventListener('click',()=>lineMethodHelp('realistic',realisticMaterialMode.value));
+  commonLineHelpBtn.addEventListener('click',()=>lineMethodHelp(threadRenderMode.value,threadRenderMode.value==='realistic'?realisticMaterialMode.value:null));
+  materialHelpClose.addEventListener('click',()=>materialHelpDialog.close());
+  materialHelpDialog.addEventListener('click',e=>{const r=materialHelpDialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)materialHelpDialog.close()});
   threadWidthRange.addEventListener('input',e=>{state.threadWidth=parseFloat(e.target.value);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×'});
   texturePickBtn.addEventListener('click',()=>yarnTextureInput.click());
   yarnTextureInput.addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=160;c.height=32;const x=c.getContext('2d');const sc=Math.max(c.width/img.width,c.height/img.height),w=img.width*sc,h=img.height*sc;x.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);yarnPattern=ctx.createPattern(c,'repeat');textureStatus.textContent=`${file.name} を糸表面として使用`;URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)});
@@ -1308,7 +1629,7 @@
   let prev=performance.now();
   function frame(now){
     const dt=Math.min(.05,(now-prev)/1000);prev=now;
-    if(state.playing){const seq=sequence();if(state.stepIndex<seq.length){const s=seq[state.stepIndex];state.stepProgress+=dt*state.speed/s.duration;if(state.stepProgress>=1){state.stepProgress=1;advance()}updateUI()}else state.playing=false}
+    if(state.playing){const seq=sequence();if(state.stepIndex<seq.length){const s=seq[state.stepIndex];state.stepProgress+=dt*effectivePlaybackRate(s)/s.duration;if(state.stepProgress>=1){state.stepProgress=1;advance()}updateUI()}else state.playing=false}
     ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
     let segs=[];const seq=sequence();
     // Completed construction steps.
@@ -1316,15 +1637,24 @@
     // Optional preview is limited to the future kagari, not the division construction.
     if(state.ghost){for(let i=state.stepIndex;i<seq.length;i+=Math.max(1,Math.floor(seq.length/90))){const s=seq[i];if(s.kind==='kagari')segs.push(...polySegments(s.points,s.color,.8,.07,.07,[2,4],'ghost'))}}
     let currentPts=null,currentStep=null,currentMotion=null;
-    if(state.stepIndex<seq.length){currentStep=seq[state.stepIndex];if(currentStep.kind!=='core'){const disp=computeDisplayedThread(currentStep,state.stepProgress);currentMotion=disp.motion;currentPts=applyStitchDepth(disp.points,currentStep,currentMotion.pathProgress);if(currentStep.kind==='division'&&state.showGuides)segs.push(...polySegments(currentPts,state.divisionColor,2.65,1,1,null,'division'));if(currentStep.kind==='kagari')segs.push(...polySegments(currentPts,currentStep.color,4.1,1,1,null,'thread'))}}
+    if(state.stepIndex<seq.length)currentStep=seq[state.stepIndex];
     const needleModel=makeNeedleModel(currentStep,state.stepProgress);updateNeedleStatus(currentStep);
-    // Back-side and submerged segments are painted before the opaque core. This makes the thread/needle disappear into the ball and re-emerge naturally.
-    const horizon=.285,back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSegments(needleModel.segs,false);drawCoreSphere();drawSegments(front);if(needleModel){drawNeedleSegments(needleModel.segs,true);drawNeedleCap(needleModel)}
+    if(currentStep&&currentStep.kind!=='core'){
+      const disp=computeDisplayedThread(currentStep,state.stepProgress);currentMotion=disp.motion;currentPts=applyStitchDepth(disp.points,currentStep,currentMotion.pathProgress);
+      // The animated thread endpoint is exactly the rounded rear pole of the needle.
+      // This also keeps the thread attached while the needle pivots or temporarily enters the core.
+      if(needleModel&&currentPts&&currentPts.length)currentPts[currentPts.length-1]=V(needleModel.tail.x,needleModel.tail.y,needleModel.tail.z);
+      if(currentStep.kind==='division'&&state.showGuides)segs.push(...polySegments(currentPts,state.divisionColor,2.65,1,1,null,'division'));
+      if(currentStep.kind==='kagari')segs.push(...polySegments(currentPts,currentStep.color,4.1,1,1,null,'thread'));
+    }
+    // Back-side/submerged thread and the complete needle are painted first; the opaque core masks the hidden portion.
+    // Then only the front/outside portion of the same rigid needle is repainted above the core.
+    const horizon=.285,back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
     if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if(q.z>=.285&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
     requestAnimationFrame(frame);
   }
-  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;threadWidthRange.value=String(state.threadWidth);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
-  ensureCustomThreadColors(state.key);updateThreadControlState();refreshMeta();buildTimelineTicks();updateUI();requestAnimationFrame(frame);
+  threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;realisticMaterialMode.value=state.realisticMaterial;threadWidthRange.value=String(state.threadWidth);diameterCm.value=state.diameterCm.toFixed(1);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';speedRange.value=String(state.speed);speedValue.textContent=state.speed.toFixed(2)+'x';lightToggle.checked=state.lightOn;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
+  ensureCustomThreadColors(state.key);updateThreadControlState();refreshMeta();buildTimelineTicks();updateUI();updateThreadLengthSummary();requestAnimationFrame(frame);
 })();
 </script>
 </body>
