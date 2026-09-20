@@ -267,6 +267,37 @@
   }
   #needleStatus .needle-relation{color:#333}
   #needleStatus[hidden]{display:none}
+  #threadPaletteDetails{margin-top:10px;border-top:1px solid #ededed;padding-top:8px}
+  #threadPaletteDetails summary{cursor:pointer;font-family:"Times New Roman",Times,"Yu Mincho",serif;font-size:10px;letter-spacing:.08em;color:#666;list-style:none}
+  #threadPaletteDetails summary::-webkit-details-marker{display:none}
+  #threadPaletteDetails summary::after{content:" +";color:#aaa}
+  #threadPaletteDetails[open] summary::after{content:" −"}
+  #threadPaletteGrid{display:grid;grid-template-columns:1fr;gap:7px;margin-top:9px}
+  .thread-palette-item{display:grid;grid-template-columns:auto 34px minmax(92px,auto) minmax(86px,auto);gap:7px 8px;align-items:center;min-width:0;padding-bottom:7px;border-bottom:1px solid #f0f0f0}
+  .thread-palette-item input[type="color"]{width:30px;height:18px;padding:0;border:0;background:transparent}
+  .thread-palette-item select{min-width:86px;max-width:116px;font-size:9px;padding:3px 16px 3px 5px}
+  .thread-palette-index{font-family:"Times New Roman",Times,serif;font-size:9px;letter-spacing:.08em;color:#777;white-space:nowrap}
+  .thread-palette-label{grid-column:1 / -1;font-size:9px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dye-palette-btn{font-size:9px;padding:3px 5px;min-height:22px;border-bottom:1px solid #aaa;white-space:nowrap;text-align:left}
+  .dye-selected-link{grid-column:1 / -1;font-size:9px;color:#777;text-decoration:none;border-bottom:1px solid #ddd;width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #dyeDialog{width:min(780px,calc(100vw - 44px));max-height:82vh;border:1px solid #d5d5d5;background:#fff;padding:28px 30px 32px;color:#333;box-shadow:none}
+  #dyeDialog::backdrop{background:rgba(255,255,255,.88)}
+  #dyeDialog h2{font-weight:400;font-size:20px;letter-spacing:.05em;margin:0 0 8px}
+  #dyeDialog .dialog-close{position:absolute;right:22px;top:18px;width:24px;height:24px;min-height:24px;border:0;background:transparent;font-size:20px;color:#666;padding:0}
+  .dye-dialog-note{font-size:10px;line-height:1.8;color:#888;margin:0 0 14px}
+  #dyeSearch{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #aaa;background:transparent;padding:7px 2px;font-family:inherit;font-size:11px;outline:none;margin-bottom:16px}
+  #dyePaletteGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border-top:1px solid #eee;border-left:1px solid #eee}
+  .dye-swatch{display:grid;grid-template-columns:28px 1fr auto;gap:7px;align-items:center;border:0;border-right:1px solid #eee;border-bottom:1px solid #eee;background:#fff;padding:7px;text-align:left;min-height:48px;cursor:pointer}
+  .dye-swatch:hover{background:#fafafa}
+  .dye-swatch-chip{width:26px;height:26px;border:1px solid rgba(0,0,0,.12)}
+  .dye-swatch-name{font-size:10px;line-height:1.3;color:#444}
+  .dye-swatch-source{display:block;font-size:8px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dye-swatch-link{font-size:11px;color:#777;text-decoration:none;padding:4px}
+  .dye-swatch-link:hover{color:#111}
+  .dye-source-footer{margin-top:14px;font-size:9px;color:#999;line-height:1.6}
+  .dye-source-footer a{color:#666;text-decoration:none;border-bottom:1px solid #bbb}
+  @media(max-width:900px){#dyePaletteGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:520px){#dyePaletteGrid{grid-template-columns:1fr}.thread-palette-item{grid-template-columns:auto 34px 1fr}}
   .needle-note{font-size:10px;color:#999;line-height:1.75;margin-top:7px}
   @media(max-width:980px){
     #viewerTimeline{left:28px;right:28px;bottom:18px;background:rgba(255,255,255,.96)}
@@ -352,8 +383,13 @@
           <option value="original">原図・工程色</option>
           <option value="neon">蛍光ネオン</option>
           <option value="botanical">草木染め調・低彩度</option>
+          <option value="custom">糸色を個別指定</option>
         </select>
       </div>
+      <details id="threadPaletteDetails">
+        <summary>かがり糸を個別指定</summary>
+        <div id="threadPaletteGrid"></div>
+      </details>
       <div class="row">
         <label for="threadRenderMode">線種</label>
         <select id="threadRenderMode">
@@ -398,6 +434,14 @@
     <h2 id="referencesTitle">参考サイト</h2>
     <div id="allReferencesList"></div>
   </dialog>
+  <dialog id="dyeDialog" aria-labelledby="dyeDialogTitle">
+    <button id="dyeDialogClose" class="dialog-close" type="button" aria-label="閉じる">×</button>
+    <h2 id="dyeDialogTitle">草木染めの色辞典</h2>
+    <p class="dye-dialog-note">Maito Design Works「草木染めの色辞典」で公開されている色名とRGB値から選択します。色名右端の ↗ は出典ページを開きます。</p>
+    <input id="dyeSearch" type="search" placeholder="色名・染材名で検索　例：藍、浅葱、茜、紫" aria-label="草木染め色を検索">
+    <div id="dyePaletteGrid"></div>
+    <div class="dye-source-footer">source: <a href="https://maitokomuro.com/iroziten/" target="_blank" rel="noopener">Maito Design Works — 草木染めの色辞典 ↗</a></div>
+  </dialog>
 </div>
 <script>
 (() => {
@@ -407,11 +451,12 @@
   const speedRange=document.getElementById('speedRange'),speedValue=document.getElementById('speedValue'),guideToggle=document.getElementById('guideToggle'),labelToggle=document.getElementById('labelToggle'),ghostToggle=document.getElementById('ghostToggle'),needleToggle=document.getElementById('needleToggle');
   const needleStatus=document.getElementById('needleStatus'),needleRelation=document.getElementById('needleRelation');
   const coreColor=document.getElementById('coreColor'),divisionColor=document.getElementById('divisionColor'),threadBaseColor=document.getElementById('threadBaseColor'),coreColorValue=document.getElementById('coreColorValue'),divisionColorValue=document.getElementById('divisionColorValue'),threadBaseColorValue=document.getElementById('threadBaseColorValue');
-  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus');
+  const threadColorMode=document.getElementById('threadColorMode'),threadRenderMode=document.getElementById('threadRenderMode'),textureRow=document.getElementById('textureRow'),yarnTextureInput=document.getElementById('yarnTextureInput'),texturePickBtn=document.getElementById('texturePickBtn'),textureStatus=document.getElementById('textureStatus'),threadPaletteDetails=document.getElementById('threadPaletteDetails'),threadPaletteGrid=document.getElementById('threadPaletteGrid');
   const phaseButtons=[...document.querySelectorAll('.phase-jump')];
   const stepTitle=document.getElementById('stepTitle'),stepText=document.getElementById('stepText'),progressBar=document.getElementById('progressBar'),timelineRange=document.getElementById('timelineRange'),timelineTicks=document.getElementById('timelineTicks'),timelinePosition=document.getElementById('timelinePosition'),patternIntro=document.getElementById('patternIntro'),sourceLinks=document.getElementById('sourceLinks'),fidelityBadge=document.getElementById('fidelityBadge'),divisionBadge=document.getElementById('divisionBadge');
   const panelToggle=document.getElementById('panelToggle'),panelToggleText=document.getElementById('panelToggleText'),pointHelpBtn=document.getElementById('pointHelpBtn'),pointHelpPopover=document.getElementById('pointHelpPopover'),pointHelpClose=document.getElementById('pointHelpClose');
   const allRefsBtn=document.getElementById('allRefsBtn'),referencesDialog=document.getElementById('referencesDialog'),referencesClose=document.getElementById('referencesClose'),allReferencesList=document.getElementById('allReferencesList');
+  const dyeDialog=document.getElementById('dyeDialog'),dyeDialogClose=document.getElementById('dyeDialogClose'),dyeSearch=document.getElementById('dyeSearch'),dyePaletteGrid=document.getElementById('dyePaletteGrid');
 
   // ---------- vector / spherical utilities ----------
   const V=(x,y,z)=>({x,y,z});
@@ -788,7 +833,8 @@
   };
   const globalReferences=[
     ['TemariKai Pattern Contents','https://www.temarikai.com/PatternsPages/PatternContents.html'],
-    ['TemariKai How To Contents','https://www.temarikai.com/HowToPages/HowToContents.html']
+    ['TemariKai How To Contents','https://www.temarikai.com/HowToPages/HowToContents.html'],
+    ['Maito Design Works — 草木染めの色辞典','https://maitokomuro.com/iroziten/']
   ];
   const primaryReferenceLabels={
     yaegiku:'讃岐かがり手まり — 八重菊',
@@ -814,7 +860,7 @@
   function populateSelect(){patternSelect.innerHTML='';let last='';for(const key of order){const p=patterns[key];if(p.category!==last){const g=document.createElement('optgroup');g.label=p.category;g.dataset.category=p.category;patternSelect.appendChild(g);last=p.category;}const g=[...patternSelect.children].find(x=>x.dataset.category===p.category);const o=document.createElement('option');o.value=key;o.textContent=p.name;g.appendChild(o);}}
   populateSelect();
 
-  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.15,showGuides:true,showLabels:true,showNeedle:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
+  let state={key:'gt14',playing:false,stepIndex:0,stepProgress:0,speed:1.15,showGuides:true,showLabels:true,showNeedle:true,ghost:false,coreColor:'#e7dfd2',divisionColor:'#b5a878',threadBaseColor:'#a66f79',threadColor:'base',threadRender:'flat',customThreadColors:{},customThreadRenders:{},customThreadDyes:{},rx:-.18,ry:.52,zoom:1,panX:0,panY:0};
   patternSelect.value=state.key;const finished=[];
 
   function rotate(p){let{x,y,z}=p;const cy=Math.cos(state.ry),sy=Math.sin(state.ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(state.rx),sx=Math.sin(state.rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];return V(x,y,z)}
@@ -827,7 +873,98 @@
   const neonPalette=['#00f5ff','#ff2bd6','#b8ff00','#ffd400','#7a5cff','#00ff9d','#ff4b3e'];
   const botanicalPalette=['#6f8792','#a86f72','#b79a63','#7f9276','#8f7d91','#9a795f','#657d73','#b08072'];
   function stringHash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
-  function threadColorFor(source){if(state.threadColor==='base')return state.threadBaseColor;if(state.threadColor==='neon')return neonPalette[stringHash(source)%neonPalette.length];if(state.threadColor==='botanical')return botanicalPalette[stringHash(source)%botanicalPalette.length];return source}
+  function normalizeColorKey(source){return String(source||'#888888').trim().toLowerCase()}
+  const MAITO_DICTIONARY_URL='https://maitokomuro.com/iroziten/';
+  const maitoDyeColors=[
+    {name:'鴇浅葱',hex:'#D6BEB2',dye:'檳榔子染',url:'https://maitokomuro.com/naturaldye/betelnut-dye/'},{name:'樺色',hex:'#96715B',dye:'檳榔子染',url:'https://maitokomuro.com/naturaldye/betelnut-dye/'},{name:'朽葉',hex:'#A17C4F',dye:'檳榔子染',url:'https://maitokomuro.com/naturaldye/betelnut-dye/'},{name:'中煤竹',hex:'#5C5643',dye:'檳榔子染',url:'https://maitokomuro.com/naturaldye/betelnut-dye/'},{name:'檳榔子黒',hex:'#A25768',dye:'檳榔子染',url:'https://maitokomuro.com/naturaldye/betelnut-dye/'},
+    {name:'深蘇芳',hex:'#6C1D29',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},{name:'浅蘇芳',hex:'#A25768',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},{name:'蘇芳色',hex:'#C82838',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},{name:'樺茶',hex:'#92523B',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},{name:'似せ紫',hex:'#513743',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},{name:'黄櫨染',hex:'#D66A35',dye:'蘇芳染',url:'https://maitokomuro.com/naturaldye/sappanwood-dye/'},
+    {name:'天鵞絨',hex:'#46735D',dye:'柘榴染',url:'https://maitokomuro.com/naturaldye/pomegranate-dye/'},{name:'芥子色',hex:'#DAC33E',dye:'柘榴染',url:'https://maitokomuro.com/naturaldye/pomegranate-dye/'},{name:'黄色',hex:'#F4EE76',dye:'柘榴染',url:'https://maitokomuro.com/naturaldye/pomegranate-dye/'},{name:'薄黄色',hex:'#F7F09F',dye:'柘榴染',url:'https://maitokomuro.com/naturaldye/pomegranate-dye/'},
+    {name:'薄香',hex:'#E4C78A',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},{name:'薄茶色',hex:'#986230',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},{name:'杏子色',hex:'#CC6F18',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},{name:'鈍色',hex:'#7B807A',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},{name:'黒褐色',hex:'#262030',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},{name:'水戸黒',hex:'#00030F',dye:'矢車附子染',url:'https://maitokomuro.com/naturaldye/yashabushi-dye/'},
+    {name:'薄黄色',hex:'#FFFB72',dye:'オリーブ染',url:'https://maitokomuro.com/naturaldye/olive-dye/'},{name:'オリーブ色',hex:'#8E9131',dye:'オリーブ染',url:'https://maitokomuro.com/naturaldye/olive-dye/'},{name:'枯野',hex:'#DAC290',dye:'オリーブ染',url:'https://maitokomuro.com/naturaldye/olive-dye/'},{name:'黄朽葉',hex:'#E09646',dye:'オリーブ染',url:'https://maitokomuro.com/naturaldye/olive-dye/'},
+    {name:'緋色',hex:'#D53D2D',dye:'茜染',url:'https://maitokomuro.com/naturaldye/madder-dye/'},{name:'朱色',hex:'#EE703A',dye:'茜染',url:'https://maitokomuro.com/naturaldye/madder-dye/'},{name:'茶色',hex:'#9E5333',dye:'茜染',url:'https://maitokomuro.com/naturaldye/madder-dye/'},{name:'藤煤竹',hex:'#683A3C',dye:'茜染',url:'https://maitokomuro.com/naturaldye/madder-dye/'},
+    {name:'紅',hex:'#E6674E',dye:'紅花染',url:'https://maitokomuro.com/naturaldye/safflower-dye/'},{name:'韓紅',hex:'#E95464',dye:'紅花染',url:'https://maitokomuro.com/naturaldye/safflower-dye/'},{name:'山吹色',hex:'#FACE55',dye:'紅花染',url:'https://maitokomuro.com/naturaldye/safflower-dye/'},{name:'薄紅',hex:'#FF80B3',dye:'紅花染',url:'https://maitokomuro.com/naturaldye/safflower-dye/'},
+    {name:'裏柳',hex:'#B7BFA6',dye:'蓬染',url:'https://maitokomuro.com/naturaldye/japanesemugwort-dye/'},{name:'海松色',hex:'#666C3D',dye:'蓬染',url:'https://maitokomuro.com/naturaldye/japanesemugwort-dye/'},{name:'浅黄',hex:'#EDE885',dye:'蓬染',url:'https://maitokomuro.com/naturaldye/japanesemugwort-dye/'},{name:'利休鼠',hex:'#859484',dye:'蓬染',url:'https://maitokomuro.com/naturaldye/japanesemugwort-dye/'},
+    {name:'今紫',hex:'#101C54',dye:'ログウッド染',url:'https://maitokomuro.com/naturaldye/logwood-dye/'},{name:'小紫',hex:'#4C0235',dye:'ログウッド染',url:'https://maitokomuro.com/naturaldye/logwood-dye/'},{name:'三度黒',hex:'#0D031A',dye:'ログウッド染',url:'https://maitokomuro.com/naturaldye/logwood-dye/'},
+    {name:'薄浅葱色',hex:'#ACE1E8',dye:'臭木染',url:'https://maitokomuro.com/naturaldye/harlequin-glorybower-dye/'},{name:'新橋色',hex:'#5FA6BA',dye:'臭木染',url:'https://maitokomuro.com/naturaldye/harlequin-glorybower-dye/'},{name:'若草色',hex:'#BED496',dye:'臭木染',url:'https://maitokomuro.com/naturaldye/harlequin-glorybower-dye/'},{name:'薄水色',hex:'#CCEBE9',dye:'臭木染',url:'https://maitokomuro.com/naturaldye/harlequin-glorybower-dye/'},
+    {name:'本紫',hex:'#7D56C4',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},{name:'浅紫',hex:'#A27BAD',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},{name:'濃紫',hex:'#46325C',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},{name:'青紫',hex:'#7C6D91',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},{name:'江戸紫',hex:'#6A5E82',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},{name:'京紫',hex:'#875D91',dye:'紫根染',url:'https://maitokomuro.com/naturaldye/murasaki-dye/'},
+    {name:'ラックピンク',hex:'#B32D7B',dye:'紫鉱染',url:'https://maitokomuro.com/naturaldye/lac-dye/'},{name:'桃色',hex:'#F39ACD',dye:'紫鉱染',url:'https://maitokomuro.com/naturaldye/lac-dye/'},{name:'躑躅色',hex:'#D16262',dye:'紫鉱染',url:'https://maitokomuro.com/naturaldye/lac-dye/'},{name:'紫香色',hex:'#624663',dye:'紫鉱染',url:'https://maitokomuro.com/naturaldye/lac-dye/'},
+    {name:'臙脂色',hex:'#9C3647',dye:'コチニール染',url:'https://maitokomuro.com/naturaldye/cochineal-dye/'},{name:'紫香色',hex:'#78566C',dye:'コチニール染',url:'https://maitokomuro.com/naturaldye/cochineal-dye/'},{name:'古代紫',hex:'#593D4D',dye:'コチニール染',url:'https://maitokomuro.com/naturaldye/cochineal-dye/'},{name:'カーマイン',hex:'#D7003A',dye:'コチニール染',url:'https://maitokomuro.com/naturaldye/cochineal-dye/'},{name:'クリムゾン',hex:'#DC143C',dye:'コチニール染',url:'https://maitokomuro.com/naturaldye/cochineal-dye/'},
+    {name:'黄褐色',hex:'#9C4729',dye:'屋久杉染',url:'https://maitokomuro.com/naturaldye/yakusugi-dye/'},{name:'焦茶色',hex:'#41332A',dye:'屋久杉染',url:'https://maitokomuro.com/naturaldye/yakusugi-dye/'},{name:'菜種色',hex:'#D0AF4C',dye:'屋久杉染',url:'https://maitokomuro.com/naturaldye/yakusugi-dye/'},{name:'素色',hex:'#E0C38C',dye:'屋久杉染',url:'https://maitokomuro.com/naturaldye/yakusugi-dye/'},
+    {name:'白橡色',hex:'#D4C2A1',dye:'栗染',url:'https://maitokomuro.com/naturaldye/chestnut-dye/'},{name:'芥子色',hex:'#D7A845',dye:'栗染',url:'https://maitokomuro.com/naturaldye/chestnut-dye/'},{name:'黒橡色',hex:'#3E3E3D',dye:'栗染',url:'https://maitokomuro.com/naturaldye/chestnut-dye/'},
+    {name:'承和色',hex:'#F8F85E',dye:'槐樹染',url:'https://maitokomuro.com/naturaldye/pagodatree-dye/'},{name:'黄色',hex:'#FFF936',dye:'槐樹染',url:'https://maitokomuro.com/naturaldye/pagodatree-dye/'},{name:'海松色',hex:'#798742',dye:'槐樹染',url:'https://maitokomuro.com/naturaldye/pagodatree-dye/'},
+    {name:'菜種油色',hex:'#DDB903',dye:'玉葱染',url:'https://maitokomuro.com/naturaldye/onion-dye/'},{name:'海松色',hex:'#706F44',dye:'玉葱染',url:'https://maitokomuro.com/naturaldye/onion-dye/'},{name:'芥子色',hex:'#D0AF4C',dye:'玉葱染',url:'https://maitokomuro.com/naturaldye/onion-dye/'},{name:'柑子色',hex:'#E0C38C',dye:'玉葱染',url:'https://maitokomuro.com/naturaldye/onion-dye/'},
+    {name:'梔子色',hex:'#FAD26A',dye:'梔子染',url:'https://maitokomuro.com/naturaldye/gardenia-dye/'},{name:'山吹色',hex:'#EFA92A',dye:'梔子染',url:'https://maitokomuro.com/naturaldye/gardenia-dye/'},{name:'薄水色',hex:'#C2D9ED',dye:'梔子染',url:'https://maitokomuro.com/naturaldye/gardenia-dye/'},{name:'苗色',hex:'#BECC99',dye:'梔子染',url:'https://maitokomuro.com/naturaldye/gardenia-dye/'},
+    {name:'向日葵色',hex:'#E8E883',dye:'向日葵染',url:'https://maitokomuro.com/naturaldye/sunflower-dye/'},{name:'萱草色',hex:'#EABF71',dye:'向日葵染',url:'https://maitokomuro.com/naturaldye/sunflower-dye/'},{name:'橙色',hex:'#CC5F3A',dye:'向日葵染',url:'https://maitokomuro.com/naturaldye/sunflower-dye/'},{name:'蓬色',hex:'#7F7A60',dye:'向日葵染',url:'https://maitokomuro.com/naturaldye/sunflower-dye/'},
+    {name:'枇杷色',hex:'#F7CB3B',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},{name:'淡黄色',hex:'#F5D469',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},{name:'利休白茶',hex:'#C5C19B',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},{name:'桑茶色',hex:'#786C3A',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},{name:'舛花色',hex:'#748697',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},{name:'鳩羽鼠',hex:'#948997',dye:'桑染',url:'https://maitokomuro.com/naturaldye/mulberry-dye/'},
+    {name:'鶸茶',hex:'#818A5A',dye:'楊梅染',url:'https://maitokomuro.com/naturaldye/redbayberry-dye/'},{name:'海松色',hex:'#6C663D',dye:'楊梅染',url:'https://maitokomuro.com/naturaldye/redbayberry-dye/'},{name:'芥子色',hex:'#EACD5D',dye:'楊梅染',url:'https://maitokomuro.com/naturaldye/redbayberry-dye/'},{name:'梔子色',hex:'#EABF71',dye:'楊梅染',url:'https://maitokomuro.com/naturaldye/redbayberry-dye/'},
+    {name:'黄肌色',hex:'#F5E256',dye:'黄肌染',url:'https://maitokomuro.com/naturaldye/amur-cork-tree-dye/'},{name:'深黄',hex:'#D9BF2B',dye:'黄肌染',url:'https://maitokomuro.com/naturaldye/amur-cork-tree-dye/'},{name:'淡黄蘗',hex:'#F1EB99',dye:'黄肌染',url:'https://maitokomuro.com/naturaldye/amur-cork-tree-dye/'},{name:'鶯色',hex:'#83823D',dye:'黄肌染',url:'https://maitokomuro.com/naturaldye/amur-cork-tree-dye/'},
+    {name:'雌黄色',hex:'#F5BC55',dye:'マリーゴールド染',url:'https://maitokomuro.com/naturaldye/marigold-dye/'},{name:'柑子色',hex:'#EEA057',dye:'マリーゴールド染',url:'https://maitokomuro.com/naturaldye/marigold-dye/'},{name:'淡黄',hex:'#EACD5D',dye:'マリーゴールド染',url:'https://maitokomuro.com/naturaldye/marigold-dye/'},
+    {name:'承和色',hex:'#E6DD7E',dye:'丁子染',url:'https://maitokomuro.com/naturaldye/clove-dye/'},{name:'黄',hex:'#E3D75D',dye:'丁子染',url:'https://maitokomuro.com/naturaldye/clove-dye/'},{name:'丁子色',hex:'#AB9765',dye:'丁子染',url:'https://maitokomuro.com/naturaldye/clove-dye/'},{name:'樺茶',hex:'#6E5E45',dye:'丁子染',url:'https://maitokomuro.com/naturaldye/clove-dye/'},
+    {name:'砥の粉色',hex:'#E4C78A',dye:'桂皮染',url:'https://maitokomuro.com/naturaldye/cinnamon-day/'},{name:'栗皮色',hex:'#986230',dye:'桂皮染',url:'https://maitokomuro.com/naturaldye/cinnamon-day/'},
+    {name:'深紫色',hex:'#675E82',dye:'ブルーベリー染',url:'https://maitokomuro.com/naturaldye/blueberry-dye/'},{name:'錆桔梗色',hex:'#9887CC',dye:'ブルーベリー染',url:'https://maitokomuro.com/naturaldye/blueberry-dye/'},{name:'露草色',hex:'#6E9EE6',dye:'ブルーベリー染',url:'https://maitokomuro.com/naturaldye/blueberry-dye/'},{name:'空色',hex:'#A9B9DE',dye:'ブルーベリー染',url:'https://maitokomuro.com/naturaldye/blueberry-dye/'},
+    {name:'生成色',hex:'#F9F3D0',dye:'水木染',url:'https://maitokomuro.com/naturaldye/giantdogwood-dye/'},{name:'淡黄色',hex:'#F3E17E',dye:'水木染',url:'https://maitokomuro.com/naturaldye/giantdogwood-dye/'},{name:'海松茶',hex:'#79745C',dye:'水木染',url:'https://maitokomuro.com/naturaldye/giantdogwood-dye/'},{name:'紫黒色',hex:'#14001A',dye:'水木染',url:'https://maitokomuro.com/naturaldye/giantdogwood-dye/'},
+    {name:'梅色',hex:'#F09292',dye:'梅染',url:'https://maitokomuro.com/naturaldye/japanese-apricot-dye/'},{name:'薄橙',hex:'#EDD2AF',dye:'梅染',url:'https://maitokomuro.com/naturaldye/japanese-apricot-dye/'},{name:'樺色',hex:'#C97F15',dye:'梅染',url:'https://maitokomuro.com/naturaldye/japanese-apricot-dye/'},
+    {name:'朱鷺色',hex:'#E8B5A7',dye:'アボカド染',url:'https://maitokomuro.com/naturaldye/avocado-dye/'},{name:'海老茶',hex:'#AD594D',dye:'アボカド染',url:'https://maitokomuro.com/naturaldye/avocado-dye/'},{name:'柿色',hex:'#DE9778',dye:'アボカド染',url:'https://maitokomuro.com/naturaldye/avocado-dye/'},{name:'鳩羽鼠',hex:'#907A7A',dye:'アボカド染',url:'https://maitokomuro.com/naturaldye/avocado-dye/'},
+    {name:'黄水仙',hex:'#FFEFA0',dye:'蜜柑染',url:'https://maitokomuro.com/naturaldye/citrusunshiu-dye/'},{name:'若芽色',hex:'#D9E092',dye:'蜜柑染',url:'https://maitokomuro.com/naturaldye/citrusunshiu-dye/'},{name:'卵色',hex:'#FDEBB4',dye:'蜜柑染',url:'https://maitokomuro.com/naturaldye/citrusunshiu-dye/'},{name:'砂色',hex:'#C9BD8D',dye:'蜜柑染',url:'https://maitokomuro.com/naturaldye/citrusunshiu-dye/'},
+    {name:'藍白',hex:'#EBF9FF',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'甕覗',hex:'#D6F8FF',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'水浅黄',hex:'#CAEFFC',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'浅葱',hex:'#B3E9FC',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'薄縹',hex:'#B1E0FA',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'薄藍',hex:'#88C5E3',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'花浅葱',hex:'#7BC4E8',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'浅縹',hex:'#6BB6DB',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'納戸',hex:'#428AC2',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'縹',hex:'#2B78C3',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'熨斗目',hex:'#145EA3',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'藍',hex:'#134FA5',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'藍錆',hex:'#0A4291',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'紺',hex:'#062B80',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'濃藍',hex:'#021E5E',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'茄子紺',hex:'#00044B',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'褐色（勝色）',hex:'#00033B',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'留紺',hex:'#000229',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'},{name:'二藍',hex:'#885CB8',dye:'藍染〔蓼藍〕',url:'https://maitokomuro.com/naturaldye/japanese-indigo-dye/'}
+  ];
+  let activeDyeTarget=null;
+  function originalThreadColorsFor(key=state.key){
+    const p=patterns[key],seen=new Set(),out=[];
+    for(const s of p.steps){const k=normalizeColorKey(s.color);if(!seen.has(k)){seen.add(k);out.push({key:k,color:s.color,title:s.title||'かがり糸'})}}
+    return out;
+  }
+  function ensureCustomThreadColors(key=state.key){
+    if(!state.customThreadColors[key])state.customThreadColors[key]={};
+    for(const item of originalThreadColorsFor(key))if(!state.customThreadColors[key][item.key])state.customThreadColors[key][item.key]=item.color;
+    return state.customThreadColors[key];
+  }
+  function ensureCustomThreadRenders(key=state.key){
+    if(!state.customThreadRenders[key])state.customThreadRenders[key]={};
+    for(const item of originalThreadColorsFor(key))if(!state.customThreadRenders[key][item.key])state.customThreadRenders[key][item.key]='inherit';
+    return state.customThreadRenders[key];
+  }
+  function ensureCustomThreadDyes(key=state.key){if(!state.customThreadDyes[key])state.customThreadDyes[key]={};return state.customThreadDyes[key]}
+  function openDyePalette(key,input){activeDyeTarget={key,input};dyeSearch.value='';renderDyePalette();if(typeof dyeDialog.showModal==='function')dyeDialog.showModal();else dyeDialog.setAttribute('open','')}
+  function renderDyePalette(){
+    const q=(dyeSearch.value||'').trim().toLowerCase();dyePaletteGrid.innerHTML='';
+    const list=maitoDyeColors.filter(c=>!q||(c.name+c.dye+c.hex).toLowerCase().includes(q));
+    for(const c of list){
+      const item=document.createElement('div');item.className='dye-swatch';item.tabIndex=0;item.setAttribute('role','button');item.setAttribute('aria-label',`${c.name} ${c.dye} ${c.hex}`);
+      const chip=document.createElement('span');chip.className='dye-swatch-chip';chip.style.background=c.hex;
+      const label=document.createElement('span');label.className='dye-swatch-name';label.textContent=c.name;const src=document.createElement('span');src.className='dye-swatch-source';src.textContent=`${c.dye} · ${c.hex}`;label.appendChild(src);
+      const a=document.createElement('a');a.className='dye-swatch-link';a.href=c.url;a.target='_blank';a.rel='noopener';a.textContent='↗';a.title=`${c.dye} の色辞典ページ`;
+      const choose=()=>{if(!activeDyeTarget)return;const map=ensureCustomThreadColors(state.key),meta=ensureCustomThreadDyes(state.key);map[activeDyeTarget.key]=c.hex;meta[activeDyeTarget.key]=c;activeDyeTarget.input.value=c.hex;renderThreadPalette();dyeDialog.close()};
+      item.addEventListener('click',e=>{if(e.target===a)return;choose()});item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}});item.append(chip,label,a);dyePaletteGrid.appendChild(item);
+    }
+  }
+  function renderThreadPalette(){
+    const map=ensureCustomThreadColors(state.key),renders=ensureCustomThreadRenders(state.key),dyes=ensureCustomThreadDyes(state.key),items=originalThreadColorsFor(state.key);threadPaletteGrid.innerHTML='';
+    items.forEach((item,i)=>{
+      const row=document.createElement('div');row.className='thread-palette-item';
+      const idx=document.createElement('span');idx.className='thread-palette-index';idx.textContent=`糸色 ${i+1}`;
+      const input=document.createElement('input');input.type='color';input.value=map[item.key]||item.color;input.setAttribute('aria-label',`糸色 ${i+1}`);
+      const renderSel=document.createElement('select');renderSel.setAttribute('aria-label',`糸色 ${i+1} の線種`);for(const [v,n] of [['inherit','共通線種'],['flat','細線'],['round','丸断面3D'],['texture','繊維テクスチャ']]){const o=document.createElement('option');o.value=v;o.textContent=n;renderSel.appendChild(o)}renderSel.value=renders[item.key]||'inherit';
+      const dyeBtn=document.createElement('button');dyeBtn.type='button';dyeBtn.className='dye-palette-btn';dyeBtn.textContent='草木染め色辞典';
+      const lab=document.createElement('span');lab.className='thread-palette-label';lab.textContent=item.title;lab.title=item.title;
+      input.addEventListener('input',()=>{map[item.key]=input.value;delete dyes[item.key];renderThreadPalette()});renderSel.addEventListener('change',()=>{renders[item.key]=renderSel.value});dyeBtn.addEventListener('click',()=>openDyePalette(item.key,input));
+      row.append(idx,input,renderSel,dyeBtn,lab);
+      if(dyes[item.key]){const c=dyes[item.key],a=document.createElement('a');a.className='dye-selected-link';a.href=c.url;a.target='_blank';a.rel='noopener';a.textContent=`${c.name}｜${c.dye} ↗`;row.appendChild(a)}
+      threadPaletteGrid.appendChild(row);
+    });
+  }
+  function threadColorFor(source){
+    if(state.threadColor==='base')return state.threadBaseColor;
+    if(state.threadColor==='neon')return neonPalette[stringHash(source)%neonPalette.length];
+    if(state.threadColor==='botanical')return botanicalPalette[stringHash(source)%botanicalPalette.length];
+    if(state.threadColor==='custom'){const map=ensureCustomThreadColors(state.key);return map[normalizeColorKey(source)]||source}
+    return source;
+  }
+  function threadRenderFor(source){
+    if(state.threadColor==='custom'){const map=ensureCustomThreadRenders(state.key),v=map[normalizeColorKey(source)];if(v&&v!=='inherit')return v}
+    return state.threadRender;
+  }
+
 
   let yarnPattern=null;
   function makeProceduralYarnPattern(){const c=document.createElement('canvas');c.width=96;c.height=24;const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.fillStyle='rgba(255,255,255,.08)';x.fillRect(0,0,c.width,c.height);for(let i=-20;i<120;i+=6){x.beginPath();x.moveTo(i,24);x.bezierCurveTo(i+7,17,i+3,7,i+13,0);x.strokeStyle=(i%12===0)?'rgba(255,255,255,.50)':'rgba(45,45,45,.20)';x.lineWidth=(i%12===0)?.8:.55;x.stroke()}for(let y=4;y<24;y+=6){x.beginPath();x.moveTo(0,y);for(let xx=0;xx<=96;xx+=8)x.lineTo(xx,y+Math.sin((xx+y)*.16)*1.4);x.strokeStyle='rgba(255,255,255,.18)';x.lineWidth=.45;x.stroke()}return ctx.createPattern(c,'repeat')}
@@ -840,13 +977,14 @@
   }
   function drawThreadSegment(s){
     const zScale=clamp(1+s.z*.12,.84,1.18),w=s.width*zScale,c=threadColorFor(s.color),a=s.alpha;
-    if(state.threadRender==='round'){
+    const renderMode=threadRenderFor(s.color);
+    if(renderMode==='round'){
       strokeOne(s,'rgba(25,25,25,.72)',w+2.0,a*.34);
       strokeOne(s,c,w+1.05,a);
       strokeOne(s,'rgba(255,255,255,.95)',Math.max(.65,w*.26),a*.28);
       return;
     }
-    if(state.threadRender==='texture'){
+    if(renderMode==='texture'){
       strokeOne(s,'rgba(30,30,30,.55)',w+1.7,a*.28);
       strokeOne(s,c,w+1.0,a*.94);
       if(yarnPattern){ctx.save();ctx.beginPath();ctx.moveTo(s.a.x,s.a.y);ctx.lineTo(s.b.x,s.b.y);ctx.strokeStyle=yarnPattern;ctx.globalAlpha=a*.48;ctx.lineWidth=w+.55;ctx.lineCap='round';ctx.setLineDash([]);ctx.stroke();ctx.restore()}
@@ -856,7 +994,13 @@
     const glow=state.threadColor==='neon'?9:0;
     strokeOne(s,c,w,a,{shadow:glow});
   }
-  function drawSegments(segs){segs.sort((a,b)=>a.z-b.z);for(const s of segs){if(s.kind==='division'){strokeOne(s,state.divisionColor,s.width,s.alpha)}else if(s.kind==='guide'||s.kind==='ghost'){strokeOne(s,s.color,s.width,s.alpha)}else drawThreadSegment(s)}ctx.setLineDash([]);ctx.globalAlpha=1;ctx.shadowBlur=0}
+  function drawSegments(segs){
+    // Important: preserve construction order. Sorting all front-facing segments by camera depth
+    // made differently coloured crossing threads swap apparent colour when the viewer rotated.
+    // In a real temari, over/under order is a property of the stitch, not of the camera.
+    for(const s of segs){if(s.kind==='division'){strokeOne(s,state.divisionColor,s.width,s.alpha)}else if(s.kind==='guide'||s.kind==='ghost'){strokeOne(s,s.color,s.width,s.alpha)}else drawThreadSegment(s)}
+    ctx.setLineDash([]);ctx.globalAlpha=1;ctx.shadowBlur=0
+  }
   function hexRgb(hex){const h=hex.replace('#','');const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
   function mixHex(hex,other,t){const a=hexRgb(hex),b=hexRgb(other);return `rgb(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)})`}
   function coreVisibility(){const seq=currentPattern().allSteps;if(state.stepIndex===0)return .18+.82*clamp(state.stepProgress,0,1);return seq.length?1:0}
@@ -1072,7 +1216,7 @@
   function updateUI(){const p=currentPattern(),seq=p.allSteps;if(state.stepIndex>=seq.length){stepTitle.textContent=`${p.name}：完成`;stepText.textContent=`①手まり芯、②${p.division.toUpperCase()}地割り、③かがりの全${seq.length}工程が終わりました。`;syncTimeline();return}const s=seq[state.stepIndex],phaseName=s.phase===1?'① 手まり芯':s.phase===2?'② 地割り':'③ かがり';stepTitle.textContent=`${phaseName}｜${state.stepIndex+1} / ${seq.length}｜${s.title}`;stepText.textContent=s.text;syncTimeline();}
   function rebuildFinished(){finished.length=0;const seq=sequence();for(let i=0;i<state.stepIndex;i++)finished.push(seq[i])}
   function reset(){state.playing=false;state.stepIndex=0;state.stepProgress=0;finished.length=0;updateUI()}
-  function loadPattern(k){state.key=k;reset();refreshMeta();buildTimelineTicks();syncTimeline()}
+  function loadPattern(k){state.key=k;ensureCustomThreadColors(k);renderThreadPalette();reset();refreshMeta();buildTimelineTicks();syncTimeline()}
   function advance(){const seq=sequence();if(state.stepIndex<seq.length){finished.push(seq[state.stepIndex]);state.stepIndex++;state.stepProgress=0}if(state.stepIndex>=seq.length)state.playing=false;updateUI()}
   function back(){state.playing=false;if(state.stepProgress>.02){state.stepProgress=0}else if(state.stepIndex>0){state.stepIndex--;state.stepProgress=0;rebuildFinished()}updateUI()}
   function jumpToPhase(ph){const p=currentPattern(),idx=p.phaseStarts[ph]??0;state.playing=false;state.stepIndex=idx;state.stepProgress=0;rebuildFinished();updateUI()}
@@ -1095,11 +1239,14 @@
   allRefsBtn.addEventListener('click',()=>{renderAllReferences();if(typeof referencesDialog.showModal==='function')referencesDialog.showModal();else referencesDialog.setAttribute('open','')});
   referencesClose.addEventListener('click',()=>referencesDialog.close());
   referencesDialog.addEventListener('click',e=>{const r=referencesDialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)referencesDialog.close()});
+  dyeDialogClose.addEventListener('click',()=>dyeDialog.close());
+  dyeDialog.addEventListener('click',e=>{const r=dyeDialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dyeDialog.close()});
+  dyeSearch.addEventListener('input',renderDyePalette);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')setPointHelp(false)});
   speedRange.addEventListener('input',e=>{state.speed=parseFloat(e.target.value);speedValue.textContent=state.speed.toFixed(2)+'x'});guideToggle.addEventListener('change',e=>state.showGuides=e.target.checked);labelToggle.addEventListener('change',e=>state.showLabels=e.target.checked);needleToggle.addEventListener('change',e=>{state.showNeedle=e.target.checked;if(!state.showNeedle)needleStatus.hidden=true});ghostToggle.addEventListener('change',e=>state.ghost=e.target.checked);
   function bindColor(input,valueEl,key){const update=()=>{state[key]=input.value;valueEl.textContent=input.value.toUpperCase()};input.addEventListener('input',update);update()}
   bindColor(coreColor,coreColorValue,'coreColor');bindColor(divisionColor,divisionColorValue,'divisionColor');bindColor(threadBaseColor,threadBaseColorValue,'threadBaseColor');
-  threadColorMode.addEventListener('change',e=>state.threadColor=e.target.value);
+  threadColorMode.addEventListener('change',e=>{state.threadColor=e.target.value;if(state.threadColor==='custom'){renderThreadPalette();threadPaletteDetails.open=true}});
   threadRenderMode.addEventListener('change',e=>{state.threadRender=e.target.value;textureRow.hidden=e.target.value!=='texture'});
   texturePickBtn.addEventListener('click',()=>yarnTextureInput.click());
   yarnTextureInput.addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=160;c.height=32;const x=c.getContext('2d');const sc=Math.max(c.width/img.width,c.height/img.height),w=img.width*sc,h=img.height*sc;x.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);yarnPattern=ctx.createPattern(c,'repeat');textureStatus.textContent=`${file.name} を糸表面として使用`;URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)});
@@ -1126,7 +1273,7 @@
     requestAnimationFrame(frame);
   }
   threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();
-  refreshMeta();buildTimelineTicks();updateUI();requestAnimationFrame(frame);
+  ensureCustomThreadColors(state.key);renderThreadPalette();refreshMeta();buildTimelineTicks();updateUI();requestAnimationFrame(frame);
 })();
 </script>
 </body>
