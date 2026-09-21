@@ -2064,17 +2064,27 @@
         // horizontal translation.  Previously this incorrectly waited until
         // translateEntryU, so the bump was absent while the visible needle was
         // already travelling under the surface.
-        const moundIn=smoothstep01(clamp(u/.10,0,1));
-        const moundOut=1-smoothstep01(clamp((u-.86)/.14,0,1));
+        const moundIn=smoothstep01(clamp(u/.08,0,1));
+        // Keep the mound until the tail has essentially reached the symmetric exit point B.
+        const moundOut=1-smoothstep01(clamp((u-.985)/.015,0,1));
         const moundStrength=Math.pow(clamp(moundIn*moundOut,0,1),.72);
-        const centerOnChord=norm(lerp(b.A,b.B,clamp(u,0,1)));
-        mound={center:centerOnChord,A:b.A,B:b.B,strength:moundStrength,angularRadius:Math.max(.032,b.delta*3.4),height:Math.min(.028,Math.max(NEEDLE_DIAMETER*2.15,b.delta*.58))*moundStrength};
+        const fixedInsertion=norm(b.A),fixedExit=norm(b.B);
+        const chordMid=norm(lerp(fixedInsertion,fixedExit,0.5*clamp(u,0,1)));
+        const halfSpanAng=Math.acos(clamp(dot(fixedInsertion,chordMid),-1,1));
+        mound={center:chordMid,A:fixedInsertion,B:fixedExit,strength:moundStrength,progress:clamp(u,0,1),angularRadius:Math.max(.018,halfSpanAng + b.delta*(1.05+.65*moundStrength)),height:Math.min(.018,Math.max(NEEDLE_DIAMETER*1.42,b.delta*.30))*moundStrength};
       }else{
         concatPts(points,b.surfaceToA);concatPts(points,b.bite);
         const u=smoothstep01((local-translateEnd)/(1-translateEnd));
         tail=b.B;dir=slerpVec(insertDir,outgoing,u);tip=add(tail,scale(dir,NEEDLE_TOTAL_LEN));flatDir=dir;mode='chidori-pivot-out';
         needleInsetNormal=norm(b.B);
         needleInsetDepth=0;
+        // Keep the raised tunnel very briefly after the tail arrives at B, then let it relax.
+        const relax=1-smoothstep01(clamp(u/.16,0,1));
+        if(relax>.001){
+          const fixedInsertion=norm(b.A),fixedExit=norm(b.B);
+          const halfSpanAng=Math.acos(clamp(dot(fixedInsertion,norm(lerp(fixedInsertion,fixedExit,.5))),-1,1));
+          mound={center:norm(lerp(fixedInsertion,fixedExit,.5)),A:fixedInsertion,B:fixedExit,strength:relax,progress:1,angularRadius:Math.max(.018,halfSpanAng + b.delta*1.6),height:Math.min(.018,Math.max(NEEDLE_DIAMETER*1.42,b.delta*.30))*relax};
+        }
       }
     }
     return{chidori:true,plan,segment:seg,segmentIndex:idx,segmentLocal:local,points,tail,tip,dir:norm(dir),flatDir:norm(flatDir||dir),mode,pathProgress:progress,needleInsetDepth,needleInsetNormal,mound};
@@ -2235,7 +2245,9 @@
     let dx=qb.x-qa.x,dy=qb.y-qa.y,L=Math.hypot(dx,dy);if(L<1){dx=1;dy=0;L=1}
     const ang=Math.atan2(dy,dx),basis=tangentBasis(c),qr=proj(surfaceOffset(c,basis.u,m.angularRadius,1.001));
     const rp=Math.max(5,Math.hypot(qr.x-q.x,qr.y-q.y));
-    const major=Math.max(10,rp*1.30,L*1.7),minor=Math.max(6,rp*.72);
+    const grow=clamp(m.progress||0,0,1);
+    const major=Math.max(9,rp*(.92+1.05*s),L*(.16+.44*grow));
+    const minor=Math.max(5,rp*(.56+.26*s));
     const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom,sphereR=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY;
     ctx.save();ctx.beginPath();ctx.arc(cx,cy,sphereR,0,Math.PI*2);ctx.clip();
     ctx.translate(q.x,q.y);ctx.rotate(ang);ctx.scale(major,minor);
@@ -2244,9 +2256,8 @@
     g.addColorStop(.48,mixHex(state.coreColor,'#ffffff',.12));
     g.addColorStop(.82,state.coreColor);g.addColorStop(1,mixHex(state.coreColor,'#5f5548',.18));
     ctx.globalAlpha=.64*s;ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);ctx.fill();ctx.restore();
-    // A faint tunnel shadow, visible only during penetration.
-    ctx.save();ctx.beginPath();ctx.arc(cx,cy,sphereR,0,Math.PI*2);ctx.clip();ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(qa.x,qa.y);ctx.lineTo(qb.x,qb.y);ctx.strokeStyle=`rgba(66,58,50,${(.12*s).toFixed(3)})`;ctx.lineWidth=Math.max(1.25,minor*.20);ctx.shadowColor=`rgba(40,34,30,${(.18*s).toFixed(3)})`;ctx.shadowBlur=Math.max(5,minor*.72);ctx.stroke();ctx.restore();
+    // No extra shadow is drawn on the raised surface. The needle is assumed to be
+    // travelling inside the ball here, so only the soft raised form is shown.
   }
   function needleRuns(model,frontOnly){
     const N=96,runs=[];let a=null,prevT=0;
