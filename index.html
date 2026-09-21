@@ -435,7 +435,7 @@
         <label><input type="checkbox" id="lightToggle" checked> ライト・針の影</label>
         <label><input type="checkbox" id="ghostToggle"> 完成経路を薄く予告</label>
       </div>
-      <div class="needle-note">針は糸端に接続して進みます。千鳥かがりでは針先が折れ点の地割り線を糸幅の半分だけ越えた位置で止まり、針先を支点に針の終端を外側へ回して手毬に寝かせます。続いて針は地割り線を挟んだ対称位置へまっすぐ進み、終端が抜けたあとにその終端を支点として次の目標点方向へ回転します。糸は前の折れ点から針の終端へ張られ、必要に応じて球面へ順に伏せ込まれます。上掛け／下掛けなど原典で上下関係が明記される工程では、現在糸の深さも上／下に変化させます。</div>
+      <div class="needle-note">針は糸端に接続して進みます。千鳥かがりでは針先が折れ点の地割り線を糸幅の半分だけ越えた位置で止まり、針先を支点に針の終端を外側へ回して手毬に寝かせます。続いて針は地割り線を挟んだ対称位置へまっすぐ進みますが、刺入位置は元の表面位置に戻し、針先が水平方向に進んで内部を通過し始めた短い間だけ、周囲の手毬表面が小さく盛り上がるように表示します。針の終端が抜けると、その盛り上がりは元に戻ります。終端が抜けたあとにその終端を支点として次の目標点方向へ回転します。糸は前の折れ点から針の終端へ張られ、必要に応じて球面へ順に伏せ込まれます。上掛け／下掛けなど原典で上下関係が明記される工程では、現在糸の深さも上／下に変化させます。</div>
     </div>
     <div id="pointHelpPopover" class="help-popover" hidden>
       <button id="pointHelpClose" class="popover-close" type="button" aria-label="閉じる">×</button>
@@ -1941,6 +1941,8 @@
     return{p,t:d};
   }
   const NEEDLE_TOTAL_LEN=.48;
+  const NEEDLE_BASE_RADIUS=(NEEDLE_TOTAL_LEN/(1+1/100))/100;
+  const NEEDLE_DIAMETER=NEEDLE_BASE_RADIUS*2;
   function chidoriBend(prev,target,next,step){
     const n=norm(target),guide=tangentGuideAt(target),across=norm(cross(n,guide));
     const outgoing=tangentDirAtPoint(target,next,target),incoming=tangentDirAtPoint(prev,target,target);
@@ -2001,10 +2003,19 @@
     for(let i=0;i<idx;i++){
       const s=plan.segments[i];
       if(seg.type==='bite'&&i===idx-1&&s.type==='surface'&&s.bendIndex===seg.bendIndex)continue;
-      if(s.type==='surface') concatPts(points,s.finalPoints||s.points);
-      else concatPts(points,s.points);
+      if(s.type==='surface'){
+        concatPts(points,s.finalPoints||s.points);
+      }else if(s.type==='bite'){
+        // The completed surface segment immediately before this bite already
+        // contains the approach from the previous bend to A.  s.points also
+        // contains leadSurface, so appending s.points here draws that approach
+        // twice during the animation.  Keep only the actual A→B chidori bite.
+        concatPts(points,s.bite||s.points);
+      }else{
+        concatPts(points,s.points);
+      }
     }
-    let tail,dir,flatDir,tip=null,mode='move';
+    let tail,dir,flatDir,tip=null,mode='move',needleInsetDepth=0,needleInsetNormal=null,mound=null;
     if(seg.type==='surface'){
       const part=partialPoints(seg.points,local);concatPts(points,part);const fr=pointTangentOnPolyline(seg.points,local);tail=fr.p;dir=fr.t;flatDir=dir;mode='surface-move';
     }else{
@@ -2020,6 +2031,8 @@
         flatDir=dir;
         appendStraightSegment(points,b.prevAnchor,tail);
         mode='chidori-tip-pivot';
+        needleInsetNormal=norm(add(b.A,b.prevAnchor));
+        needleInsetDepth=0;
       }else if(local<translateEnd){
         const u=smoothstep01((local-pivotEnd)/(translateEnd-pivotEnd));
         const travel=NEEDLE_TOTAL_LEN+b.chordLen;
@@ -2043,13 +2056,28 @@
           appendStraightSegment(points,anchor,tail);
         }
         mode='chidori-translate';
+        const underU=(u<b.translateEntryU)?0:clamp((u-b.translateEntryU)/Math.max(1e-6,1-b.translateEntryU),0,1);
+        const biteRef=pointTangentOnPolyline(b.bite,underU);
+        needleInsetNormal=norm(biteRef.p);
+        needleInsetDepth=0;
+        // The surface starts to bulge as soon as the needle begins its straight,
+        // horizontal translation.  Previously this incorrectly waited until
+        // translateEntryU, so the bump was absent while the visible needle was
+        // already travelling under the surface.
+        const moundIn=smoothstep01(clamp(u/.10,0,1));
+        const moundOut=1-smoothstep01(clamp((u-.86)/.14,0,1));
+        const moundStrength=Math.pow(clamp(moundIn*moundOut,0,1),.72);
+        const centerOnChord=norm(lerp(b.A,b.B,clamp(u,0,1)));
+        mound={center:centerOnChord,A:b.A,B:b.B,strength:moundStrength,angularRadius:Math.max(.032,b.delta*3.4),height:Math.min(.028,Math.max(NEEDLE_DIAMETER*2.15,b.delta*.58))*moundStrength};
       }else{
         concatPts(points,b.surfaceToA);concatPts(points,b.bite);
         const u=smoothstep01((local-translateEnd)/(1-translateEnd));
         tail=b.B;dir=slerpVec(insertDir,outgoing,u);tip=add(tail,scale(dir,NEEDLE_TOTAL_LEN));flatDir=dir;mode='chidori-pivot-out';
+        needleInsetNormal=norm(b.B);
+        needleInsetDepth=0;
       }
     }
-    return{chidori:true,plan,segment:seg,segmentIndex:idx,segmentLocal:local,points,tail,tip,dir:norm(dir),flatDir:norm(flatDir||dir),mode,pathProgress:progress};
+    return{chidori:true,plan,segment:seg,segmentIndex:idx,segmentLocal:local,points,tail,tip,dir:norm(dir),flatDir:norm(flatDir||dir),mode,pathProgress:progress,needleInsetDepth,needleInsetNormal,mound};
   }
 
   function needleMotionSpec(step){
@@ -2167,7 +2195,7 @@
     // Hemisphere flat face/base of cone is one radius forward from the rounded rear pole.
     const baseCenter=add(tail,scale(dir,baseRadius));
     const tip=add(baseCenter,scale(dir,coneHeight));
-    return{tail,baseCenter,tip,dir,flatDisplayDir,contact,relation,threadResume,totalLen,coneHeight,baseRadius};
+    return{tail,baseCenter,tip,dir,flatDisplayDir,contact,relation,threadResume,totalLen,coneHeight,baseRadius,mode:chidoriAnim?chidoriAnim.mode:anim.mode,mound:chidoriAnim?chidoriAnim.mound:null};
   }
   function needleProfileRadius(model,t){
     const x=clamp(t,0,1)*model.totalLen;
@@ -2193,11 +2221,38 @@
     const q1=proj(add(center,scale(b1,rr))),q2=proj(add(center,scale(b2,rr)));
     return Math.max(Math.hypot(q1.x-q.x,q1.y-q.y),Math.hypot(q2.x-q.x,q2.y-q.y),.15);
   }
+  function needleSurfaceRadiusAt(model,p){
+    if(!model||!model.mound||state.displayMode!=='sphere'||model.mound.strength<=.001)return 1.0005;
+    const m=model.mound,c=norm(m.center),pn=norm(p),ang=Math.acos(clamp(dot(c,pn),-1,1));
+    const sigma=Math.max(.008,m.angularRadius),g=Math.exp(-2.25*(ang*ang)/(sigma*sigma));
+    return 1.0005+(m.height||0)*g;
+  }
+  function drawNeedleMound(model){
+    if(!model||!model.mound||state.displayMode!=='sphere')return;
+    const m=model.mound,s=clamp(m.strength||0,0,1);if(s<.015)return;
+    const c=scale(norm(m.center),1.001),q=proj(c);if(q.z<-.08)return;
+    const qa=proj(scale(norm(m.A),1.001)),qb=proj(scale(norm(m.B),1.001));
+    let dx=qb.x-qa.x,dy=qb.y-qa.y,L=Math.hypot(dx,dy);if(L<1){dx=1;dy=0;L=1}
+    const ang=Math.atan2(dy,dx),basis=tangentBasis(c),qr=proj(surfaceOffset(c,basis.u,m.angularRadius,1.001));
+    const rp=Math.max(5,Math.hypot(qr.x-q.x,qr.y-q.y));
+    const major=Math.max(10,rp*1.30,L*1.7),minor=Math.max(6,rp*.72);
+    const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom,sphereR=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY;
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,sphereR,0,Math.PI*2);ctx.clip();
+    ctx.translate(q.x,q.y);ctx.rotate(ang);ctx.scale(major,minor);
+    const g=ctx.createRadialGradient(-.20,-.28,.04,0,0,1.05);
+    g.addColorStop(0,mixHex(state.coreColor,'#ffffff',.42));
+    g.addColorStop(.48,mixHex(state.coreColor,'#ffffff',.12));
+    g.addColorStop(.82,state.coreColor);g.addColorStop(1,mixHex(state.coreColor,'#5f5548',.18));
+    ctx.globalAlpha=.64*s;ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);ctx.fill();ctx.restore();
+    // A faint tunnel shadow, visible only during penetration.
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,sphereR,0,Math.PI*2);ctx.clip();ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(qa.x,qa.y);ctx.lineTo(qb.x,qb.y);ctx.strokeStyle=`rgba(66,58,50,${(.12*s).toFixed(3)})`;ctx.lineWidth=Math.max(1.25,minor*.20);ctx.shadowColor=`rgba(40,34,30,${(.18*s).toFixed(3)})`;ctx.shadowBlur=Math.max(5,minor*.72);ctx.stroke();ctx.restore();
+  }
   function needleRuns(model,frontOnly){
     const N=96,runs=[];let a=null,prevT=0;
     for(let i=0;i<=N;i++){
       const t=i/N,p=needleWorldPoint(model,t),q=proj(p);
-      const front=(len(p)>=1.0005 && q.z>=.285);
+      const front=(len(p)>=needleSurfaceRadiusAt(model,p) && q.z>=.285);
       const on=frontOnly?front:true;
       if(on&&a===null)a=t;
       if((!on||i===N)&&a!==null){const b=(!on?prevT:t);if(b-a>1e-5)runs.push([a,b]);a=null}
@@ -2524,7 +2579,7 @@
     // Then only the front/outside portion of the same rigid needle is repainted above the core.
     const horizon=.285;
     if(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'||state.displayMode==='dode3d'){
-      const back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
+      const back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleMound(needleModel);if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
     }else{
       drawCoreSphere(); drawSegments(segs); if(needleModel)drawNeedleFlat(needleModel)
     }
