@@ -392,10 +392,12 @@
         <option value="icoNet">5. 正20面体の展開平面図</option>
         <option value="trunc3d">6. 切頂20面体の立体表示</option>
         <option value="truncNet">7. 切頂20面体の展開平面図</option>
+        <option value="dode3d">8. 正12面体の立体表示</option>
+        <option value="dodeNet">9. 正12面体の展開平面図</option>
       </select>
       <button id="svgExportBtn" type="button">SVG出力</button>
     </div>
-    <p class="small" id="displayModeHint">平面表示（2 / 3 / 5）ではSVG出力できます。</p>
+    <p class="small" id="displayModeHint">平面表示（2 / 3 / 5 / 7 / 9）ではSVG出力できます。</p>
     <div id="meta">
       <div class="row tight" style="margin-top:0"><span id="fidelityBadge" class="badge"></span><span id="divisionBadge" class="badge"></span></div>
       <p id="patternIntro"></p>
@@ -433,7 +435,7 @@
         <label><input type="checkbox" id="lightToggle" checked> ライト・針の影</label>
         <label><input type="checkbox" id="ghostToggle"> 完成経路を薄く予告</label>
       </div>
-      <div class="needle-note">針は表面の進行方向に対して右側から入り、球内へ潜って左側へ抜ける動きを表示します。Uwagake / Sakasa など原典で上下関係が明記される工程では、現在糸の深さも上／下に変化させます。</div>
+      <div class="needle-note">針は糸端に接続して進みます。千鳥かがりでは針先が折れ点の地割り線を糸幅の半分だけ越えた位置で止まり、針先を支点に針の終端を外側へ回して手毬に寝かせます。続いて針は地割り線を挟んだ対称位置へまっすぐ進み、終端が抜けたあとにその終端を支点として次の目標点方向へ回転します。糸は前の折れ点から針の終端へ張られ、必要に応じて球面へ順に伏せ込まれます。上掛け／下掛けなど原典で上下関係が明記される工程では、現在糸の深さも上／下に変化させます。</div>
     </div>
     <div id="pointHelpPopover" class="help-popover" hidden>
       <button id="pointHelpClose" class="popover-close" type="button" aria-label="閉じる">×</button>
@@ -712,6 +714,55 @@
     return{x,y,face:faceIndex};
   }
   function truncNetCoords(p){const info=rayToTruncated(norm(p));return truncNetCoordsOnFace(p,info.face)}
+
+  // ---------- regular dodecahedron: dual of the icosahedron ----------
+  const dodeVerts=icoFaceCenters.map(v=>V(v.x,v.y,v.z));
+  function orderedDodeFaceVertexIds(vi){
+    const c=ico[vi],{u,v}=tangentBasis(c);
+    return facesAtVertex[vi].slice().sort((fa,fb)=>{
+      const a=dodeVerts[fa],b=dodeVerts[fb],da=sub(a,scale(c,dot(a,c))),db=sub(b,scale(c,dot(b,c)));
+      return Math.atan2(dot(da,v),dot(da,u))-Math.atan2(dot(db,v),dot(db,u));
+    });
+  }
+  const dodeFaces=[];for(let vi=0;vi<ico.length;vi++)dodeFaces.push({type:'pentagon',source:vi,verts:orderedDodeFaceVertexIds(vi)});
+  function dodeNormal3D(face){const a=dodeVerts[face.verts[0]],b=dodeVerts[face.verts[1]],c=dodeVerts[face.verts[2]];let n=norm(cross(sub(b,a),sub(c,a)));const cen=face.verts.reduce((s,i)=>add(s,dodeVerts[i]),V(0,0,0));if(dot(n,cen)<0)n=scale(n,-1);return n}
+  const dodeFaceData=dodeFaces.map((face,fi)=>{
+    const points=face.verts.map(i=>dodeVerts[i]),center=scale(points.reduce((s,q)=>add(s,q),V(0,0,0)),1/points.length),normal=dodeNormal3D(face);
+    const ux=norm(sub(points[1],points[0])),uy=norm(cross(normal,ux));
+    const local=points.map(q=>({x:dot(sub(q,center),ux),y:dot(sub(q,center),uy)}));
+    return{...face,fi,points,center,normal,ux,uy,local};
+  });
+  function rayToDodecahedron(d){
+    const dir=norm(d);let best=null;
+    for(const face of dodeFaceData){
+      const den=dot(face.normal,dir);if(Math.abs(den)<1e-9)continue;const t=dot(face.normal,face.points[0])/den;if(t<=1e-8)continue;const q=scale(dir,t);
+      let inside=true,sign=0;for(let i=0;i<face.points.length;i++){const a=face.points[i],b=face.points[(i+1)%face.points.length],e=sub(b,a),w=sub(q,a),s=dot(cross(e,w),face.normal);if(Math.abs(s)<1e-7)continue;const sg=Math.sign(s);if(!sign)sign=sg;else if(sg!==sign){inside=false;break}}
+      if(inside&&(!best||t<best.t))best={face:face.fi,point:q,t};
+    }
+    if(best)return best;
+    let face=0,max=-1e9;for(const f of dodeFaceData){const s=dot(dir,norm(f.center));if(s>max){max=s;face=f.fi}}
+    const f=dodeFaceData[face],t=dot(f.normal,f.points[0])/(dot(f.normal,dir)||1e-9);return{face,point:scale(dir,t),t};
+  }
+  function mapPointToDodecahedron(p){const hit=rayToDodecahedron(norm(p));return scale(hit.point,len(p))}
+  const dodeEdgeLength=len(sub(dodeFaceData[0].points[0],dodeFaceData[0].points[1]));
+  function buildDodeFacePartsNet(){
+    const cols=4,cellX=3.1,cellY=3.05,layouts=[];let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    dodeFaceData.forEach((face,fi)=>{
+      const col=fi%cols,row=Math.floor(fi/cols),ox=(col-(cols-1)/2)*cellX,oy=(1-row)*cellY;
+      const local=face.local.map(p=>({x:p.x/dodeEdgeLength+ox,y:p.y/dodeEdgeLength+oy}));
+      local.forEach(pt=>{minX=Math.min(minX,pt.x);maxX=Math.max(maxX,pt.x);minY=Math.min(minY,pt.y);maxY=Math.max(maxY,pt.y)});
+      layouts.push({pts:local,type:'pentagon',face:fi,center:{x:ox,y:oy}});
+    });
+    return{faces:layouts,bounds:{minX,maxX,minY,maxY,width:maxX-minX,height:maxY-minY}};
+  }
+  const dodeNet=buildDodeFacePartsNet();
+  function dodeNetCoordsOnFace(p,faceIndex){
+    const hit=rayToDodecahedron(norm(p)),face=dodeFaceData[faceIndex],q3=(hit.face===faceIndex)?hit.point:(()=>{const dir=norm(p),t=dot(face.normal,face.points[0])/(dot(face.normal,dir)||1e-9);return scale(dir,t)})();
+    const d=sub(q3,face.center),lx=dot(d,face.ux)/dodeEdgeLength,ly=dot(d,face.uy)/dodeEdgeLength,layout=dodeNet.faces[faceIndex],base=dodeFaceData[faceIndex].local[0],net0=layout.pts[0];
+    const x=lx+(net0.x-base.x/dodeEdgeLength)-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,y=ly+(net0.y-base.y/dodeEdgeLength)-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2;
+    return{x,y,face:faceIndex};
+  }
+  function dodeNetCoords(p){const info=rayToDodecahedron(norm(p));return dodeNetCoordsOnFace(p,info.face)}
   function divisionCountForKey(key=state.key){ const d=patterns[key].division||'simple8'; if(/^simple/.test(d)) return parseInt(d.replace('simple',''),10)||8; if(d==='c8') return 8; if(d==='c10') return 10; return 8; }
 
   function guideSpec(type){
@@ -1009,7 +1060,7 @@
     }
     // center section: four labeled sets in the stated order; repeat three layers.
     const sets=[{name:'1–4',start:0,col:'#bc7b78'},{name:'A–D',start:1,col:'#839db0'},{name:'a–d',start:2,col:'#8fa783'},{name:'w–z',start:3,col:'#a78da9'}];
-    for(let layer=0;layer<3;layer++)for(const s of sets){const pts=[];for(let i=0;i<=8;i++){const lon=(s.start+i)*45;const lat=((i%2===0)?1:-1)*(12+layer*3);pts.push(sph(lat,lon));}steps.push(pathStep(pts,s.col,`GT02 中央：${s.name} 第${layer+1}周`,'原典図の4系列を1系列ずつ、右へ1地割り線ずらしながらdouble-ended Uwagake Chidoriとして交差させます。',1.0));}
+    for(let layer=0;layer<3;layer++)for(const s of sets){const pts=[];for(let i=0;i<=8;i++){const lon=(s.start+i)*45;const lat=((i%2===0)?1:-1)*(12+layer*3);pts.push(sph(lat,lon));}steps.push(pathStep(pts,s.col,`GT02 中央：${s.name} 第${layer+1}周`,'原典図の4系列を1系列ずつ、右へ1地割り線ずらしながら両端の上掛け千鳥として交差させます。',1.0,[],{stitch:'chidori'}));}
     return{category:'TemariKai 原典トレース',name:'GT02 — 紡錘形＋中央の両端千鳥',division:'simple8',fidelity:'explicit',intro:'各地割り線の両半球に紡錘形を作った後、中央部を4系列（1–4、A–D、a–d、w–z）の順で交差させる原典工程を表示。',source:'https://www.temarikai.com/PatternsPages/Simple/GT02.html',steps};
   }
 
@@ -1017,13 +1068,13 @@
     const steps=[];const colors=['#57514b','#eee9df','#b99b61'];
     for(let layer=0;layer<4;layer++){
       const n=simpleZigzag(8,84-layer*2.1,46-layer*2.6,0,1),s=simpleZigzag(8,-84+layer*2.1,-46+layer*2.6,0,1);
-      steps.push(pathStep(n,colors[layer%3],`GT73 層${layer+1}：North Pole Chidori`,'指定順序の最初は北極のUwagake Chidoriです。',.9));
-      steps.push(pathStep(s,colors[layer%3],`GT73 層${layer+1}：South Pole Chidori`,'次に南極のUwagake Chidoriを同じ層でかがります。',.9));
+      steps.push(pathStep(n,colors[layer%3],`GT73 層${layer+1}：北極の上掛け千鳥`,'指定順序の最初は北極の上掛け千鳥です。',.9,[],{stitch:'chidori'}));
+      steps.push(pathStep(s,colors[layer%3],`GT73 層${layer+1}：南極の上掛け千鳥`,'次に南極の上掛け千鳥を同じ層でかがります。',.9,[],{stitch:'chidori'}));
       for(let q=0;q<4;q++){const lon=q*90;const ctrl=[sph(49-layer*2,lon),sph(0,lon+35-layer*.8),sph(-49+layer*2,lon),sph(0,lon-35+layer*.8),sph(49-layer*2,lon)];steps.push(pathStep(ctrl,colors[layer%3],`GT73 層${layer+1}：Square ${String.fromCharCode(65+q)}`,'北→南→赤道左右の4点で大きなsquareを閉じます。A→B→C→Dの順を守ります。',.9));}
     }
     // small polar chidori
-    steps.push(pathStep(simpleZigzag(8,88,69,0,1),'#829b7b','GT73：北極の小さなChidori','大きな層の後、北極中心に小さいUwagake Chidoriを追加します。',.9));
-    steps.push(pathStep(simpleZigzag(8,-88,-69,0,1),'#829b7b','GT73：南極の小さなChidori','南極にも同じ小さいUwagake Chidoriを追加します。',.9));
+    steps.push(pathStep(simpleZigzag(8,88,69,0,1),'#829b7b','GT73：北極の小さな千鳥','大きな層の後、北極中心に小さい上掛け千鳥を追加します。',.9,[],{stitch:'chidori'}));
+    steps.push(pathStep(simpleZigzag(8,-88,-69,0,1),'#829b7b','GT73：南極の小さな千鳥','南極にも同じ小さい上掛け千鳥を追加します。',.9,[],{stitch:'chidori'}));
     // matsuba in four square centers
     for(let q=0;q<4;q++){const c=sph(0,q*90);for(const pair of matsubaAt(c,8,.32,.42))steps.push(pathStep(pair,'#b99b61',`GT73：Square ${String.fromCharCode(65+q)} 松葉`,'各赤道square中央を金のmatsuba直線で飾ります。',.28));}
     return{category:'TemariKai 原典トレース',name:'GT73 — 交差かがり＋4つの四角',division:'simple8',fidelity:'explicit',intro:'原典が指定する「北極の千鳥 → 南極の千鳥 → 四角A → B → C → D」を層ごとに反復し、最後に小菊と松葉を追加します。',source:'https://www.temarikai.com/PatternsPages/Simple/GT73.html',steps};
@@ -1120,6 +1171,7 @@
       ['TemariKai — GT14 基本の菊／上掛け千鳥','https://www.temarikai.com/PatternsPages/Simple/GT14.html'],
       ['TemariKai — 8等分の地割り線の置き方','https://www.temarikai.com/HowToPages/simpledivision2.html'],
       ['TemariKai — 上掛け千鳥・菊かがり','https://www.temarikai.com/HowToPages/uwagakekiku.html'],
+      ['TemariKai — 千鳥かがり（針運び）','https://www.temarikai.com/HowToPages/ToolKit/chidorikagari.html'],
       ['TemariKai — 尖端を伸ばす方法','https://www.temarikai.com/HowToPages/stretchpoints.html']
     ],
     kotenkiku:[],
@@ -1132,6 +1184,7 @@
     gt14:[
       ['等分地割り／地割り線','https://www.temarikai.com/HowToPages/simpledivision.html'],
       ['上掛け千鳥と菊かがり','https://www.temarikai.com/HowToPages/uwagakekiku.html'],
+      ['千鳥かがり — 針運び','https://www.temarikai.com/HowToPages/ToolKit/chidorikagari.html'],
       ['上掛け千鳥かがり — 技法ページ','https://www.temarikai.com/HowToPages/ToolKit/uwagakechidori.html'],
       ['尖端を伸ばす方法','https://www.temarikai.com/HowToPages/stretchpoints.html']
     ],
@@ -1214,10 +1267,12 @@
     if(state.displayMode==='sphere'){const q=rotate(p),d=3.5,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'sphere'},world:q};}
     if(state.displayMode==='ico3d'){const m=mapPointToIcosahedron(p),q=rotate(m),d=3.7,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.35*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'ico3d'},world:q};}
     if(state.displayMode==='trunc3d'){const m=mapPointToTruncated(p),q=rotate(m),d=3.7,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.35*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'trunc3d'},world:q};}
+    if(state.displayMode==='dode3d'){const m=mapPointToDodecahedron(p),q=rotate(m),d=3.7,f=1/(d-q.z),base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.35*state.zoom; return{x:canvas.clientWidth/2+state.panX+q.x*base*f,y:canvas.clientHeight/2+state.panY-q.y*base*f,z:q.z,meta:{mode:'dode3d'},world:q};}
     if(state.displayMode==='plane'){const ll=cartesianToLatLon(p),q=projectLocal2D(wrapLon(ll.lon),ll.lat,planeBounds()); q.meta={mode:'plane',lon:ll.lon,lat:ll.lat}; return q;}
     if(state.displayMode==='gore'){const g=goreCoords(p),q=projectLocal2D(g.x,g.y,goreBounds()); q.meta={mode:'gore',gore:g.gore,lat:g.y}; return q;}
     if(state.displayMode==='icoNet'){const g=icoNetCoords(p),q=projectLocal2D(g.x,g.y,{width:icoNet.bounds.width,height:icoNet.bounds.height}); q.meta={mode:'icoNet',face:g.face}; return q;}
-    const g=truncNetCoords(p),q=projectLocal2D(g.x,g.y,{width:truncNet.bounds.width,height:truncNet.bounds.height}); q.meta={mode:'truncNet',face:g.face}; return q;
+    if(state.displayMode==='truncNet'){const g=truncNetCoords(p),q=projectLocal2D(g.x,g.y,{width:truncNet.bounds.width,height:truncNet.bounds.height}); q.meta={mode:'truncNet',face:g.face}; return q;}
+    const g=dodeNetCoords(p),q=projectLocal2D(g.x,g.y,{width:dodeNet.bounds.width,height:dodeNet.bounds.height}); q.meta={mode:'dodeNet',face:g.face}; return q;
   }
   function shouldBreakProjection(m0,m1,p0,p1,a2=null,b2=null){
     if(!m0||!m1)return false;
@@ -1233,6 +1288,7 @@
       return true;
     }
     if(m0.mode==='truncNet')return m0.face!==m1.face;
+    if(m0.mode==='dodeNet')return m0.face!==m1.face;
     return false;
   }
   function sphereInterp(a,b,t){return scale(norm(lerp(norm(a),norm(b),t)),lerp(V(len(a),0,0),V(len(b),0,0),t).x)}
@@ -1251,6 +1307,7 @@
   }
   function projectIcoBoundaryPoint(p,faceIndex){const g=icoNetCoordsOnFace(p,faceIndex),q=projectLocal2D(g.x,g.y,{width:icoNet.bounds.width,height:icoNet.bounds.height});q.meta={mode:'icoNet',face:faceIndex};return q}
   function projectTruncBoundaryPoint(p,faceIndex){const g=truncNetCoordsOnFace(p,faceIndex),q=projectLocal2D(g.x,g.y,{width:truncNet.bounds.width,height:truncNet.bounds.height});q.meta={mode:'truncNet',face:faceIndex};return q}
+  function projectDodeBoundaryPoint(p,faceIndex){const g=dodeNetCoordsOnFace(p,faceIndex),q=projectLocal2D(g.x,g.y,{width:dodeNet.bounds.width,height:dodeNet.bounds.height});q.meta={mode:'dodeNet',face:faceIndex};return q}
   function boundarySplit(p0,p1,a,b){
     if(state.displayMode==='gore'&&a.meta.gore!==b.meta.gore){
       const g0=a.meta.gore,g1=b.meta.gore;let lo=0,hi=1;
@@ -1266,6 +1323,11 @@
       const f0=a.meta.face,f1=b.meta.face;let lo=0,hi=1;
       for(let k=0;k<40;k++){const mid=(lo+hi)/2,m=sphereInterp(p0,p1,mid),fm=rayToTruncated(norm(m)).face;if(fm===f0)lo=mid;else hi=mid;}
       const t=(lo+hi)/2,p=sphereInterp(p0,p1,t),qa=projectTruncBoundaryPoint(p,f0),qb=projectTruncBoundaryPoint(p,f1);return{t,p,qa,qb};
+    }
+    if(state.displayMode==='dodeNet'&&a.meta.face!==b.meta.face){
+      const f0=a.meta.face,f1=b.meta.face;let lo=0,hi=1;
+      for(let k=0;k<40;k++){const mid=(lo+hi)/2,m=sphereInterp(p0,p1,mid),fm=rayToDodecahedron(norm(m)).face;if(fm===f0)lo=mid;else hi=mid;}
+      const t=(lo+hi)/2,p=sphereInterp(p0,p1,t),qa=projectDodeBoundaryPoint(p,f0),qb=projectDodeBoundaryPoint(p,f1);return{t,p,qa,qb};
     }
     if(state.displayMode==='plane'&&Math.abs((b.meta.lon||0)-(a.meta.lon||0))>Math.PI){
       const lon0=a.meta.lon,lon1=b.meta.lon;let target=lon0>0?Math.PI:-Math.PI,adj=lon1;if(lon0>0&&lon1<0)adj=lon1+Math.PI*2;if(lon0<0&&lon1>0)adj=lon1-Math.PI*2;const t=clamp((target-lon0)/(adj-lon0||1e-9),0,1),p=sphereInterp(p0,p1,t),ll=cartesianToLatLon(p),qa=projectLocal2D(target,ll.lat,planeBounds()),qb=projectLocal2D(-target,ll.lat,planeBounds());qa.meta={mode:'plane',lon:target,lat:ll.lat};qb.meta={mode:'plane',lon:-target,lat:ll.lat};return{t,p,qa,qb};
@@ -1284,7 +1346,7 @@
       const u=norm(points[i]),v=norm(points[i+1]);arcCum+=Math.acos(clamp(dot(u,v),-1,1));arcStarts.push(arcCum);
     }
     const totalArc=Math.max(1e-6,arcCum);
-    const addSeg=(p0,p1,a,b,i,arc0,arc1,first,last)=>{const z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2,alpha=(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d')?(z>=0?alphaFront:alphaBack):alphaFront;segs.push({a,b,p0,p1,z,r,color,width,alpha,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:first,isLast:last,pathId,arc0,arc1,totalArc});};
+    const addSeg=(p0,p1,a,b,i,arc0,arc1,first,last)=>{const z=(a.z+b.z)/2,r=(len(p0)+len(p1))/2,alpha=(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'||state.displayMode==='dode3d')?(z>=0?alphaFront:alphaBack):alphaFront;segs.push({a,b,p0,p1,z,r,color,width,alpha,dash,kind,u:i/denom,segIndex:i,segCount:denom,isFirst:first,isLast:last,pathId,arc0,arc1,totalArc});};
     for(let i=0;i<points.length-1;i++){
       const p0=points[i],p1=points[i+1],a=projMeta(p0),b=projMeta(p1),breaks=shouldBreakProjection(a.meta,b.meta,p0,p1,a,b);
       if(!breaks){addSeg(p0,p1,a,b,i,arcStarts[i],arcStarts[i+1],i===0,i===points.length-2);continue;}
@@ -1349,30 +1411,31 @@
   function threadLengthData(){
     const p=currentPattern(),division=p.divisionSteps.reduce((sum,s)=>sum+sphericalPathLengthCm(s.points),0);
     const byKey=new Map();let kagariTotal=0;
-    for(const s of p.steps){const L=sphericalPathLengthCm(s.points),k=normalizeColorKey(s.color);kagariTotal+=L;byKey.set(k,(byKey.get(k)||0)+L);}
+    for(const s of p.steps){const L=sphericalPathLengthCm(renderPointsForStep(s)),k=normalizeColorKey(s.color);kagariTotal+=L;byKey.set(k,(byKey.get(k)||0)+L);}
     return{division,kagariTotal,byKey};
   }
   function formatLengthCm(cm){return cm>=100?`${(cm/100).toFixed(cm>=1000?2:2)} m`:`${cm.toFixed(1)} cm`;}
   function updateDisplayModeUI(){
     displayModeSelect.value=state.displayMode;
-    const planar=state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet';
+    const planar=state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet'||state.displayMode==='dodeNet';
     svgExportBtn.disabled=!planar;
     svgExportBtn.style.opacity=planar?'1':'.45';
     displayModeHint.textContent=planar?'平面表示ではSVG出力できます。':'3D表示ではSVG出力はできません。';
   }
   function buildSceneForExport(){
     const seq=sequence(),scene=[];
-    for(const s of finished){ if(s.kind==='division'){ if(state.showGuides) scene.push(...polySegments(s.points,state.divisionColor,1.55,1,1,null,'division')); } else if(s.kind==='kagari'){ scene.push(...polySegments(s.points,s.color,2.7,1,1,null,'thread')); } }
+    for(const s of finished){ if(s.kind==='division'){ if(state.showGuides) scene.push(...polySegments(s.points,state.divisionColor,1.55,1,1,null,'division')); } else if(s.kind==='kagari'){ scene.push(...polySegments(renderPointsForStep(s),s.color,2.7,1,1,null,'thread')); } }
     if(state.stepIndex<seq.length){ const step=seq[state.stepIndex]; if(step&&step.kind!=='core'){ let pts=computeDisplayedThread(step,state.stepProgress).points; pts=applyStitchDepth(pts,step,state.stepProgress); if(step.kind==='division'&&state.showGuides) scene.push(...polySegments(pts,state.divisionColor,2.65,1,1,null,'division')); if(step.kind==='kagari') scene.push(...polySegments(pts,step.color,4.1,1,1,null,'thread')); }}
     return scene;
   }
   function exportCurrentSVG(){
-    if(!(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet')) return;
+    if(!(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet'||state.displayMode==='dodeNet')) return;
     const scene=buildSceneForExport(),w=canvas.clientWidth,h=canvas.clientHeight;
     const parts=[`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,`<rect width="100%" height="100%" fill="#ffffff"/>`];
     const outline=(pts)=>parts.push(`<path d="${pts.map((q,i)=>(i?'L ':'M ')+q.x.toFixed(2)+' '+q.y.toFixed(2)).join(' ')} Z" fill="none" stroke="#9b8f72" stroke-width="1"/>`);
     if(state.displayMode==='icoNet'){for(const face of icoNet.faces){outline(face.pts.map(pt=>projectLocal2D(pt.x-(icoNet.bounds.minX+icoNet.bounds.maxX)/2,pt.y-(icoNet.bounds.minY+icoNet.bounds.maxY)/2,{width:icoNet.bounds.width,height:icoNet.bounds.height})))}}
     if(state.displayMode==='truncNet'){for(const face of truncNet.faces){const pts=face.pts.map(pt=>projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,{width:truncNet.bounds.width,height:truncNet.bounds.height}));outline(pts);const qc=projectLocal2D(face.center.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.center.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,{width:truncNet.bounds.width,height:truncNet.bounds.height});parts.push(`<text x="${qc.x.toFixed(2)}" y="${qc.y.toFixed(2)}" font-size="9" text-anchor="middle" fill="#756b58">${face.type==='pentagon'?'P'+(face.face+1):'H'+(face.face-11)}</text>`)}}
+    if(state.displayMode==='dodeNet'){for(const face of dodeNet.faces){const pts=face.pts.map(pt=>projectLocal2D(pt.x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,pt.y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,{width:dodeNet.bounds.width,height:dodeNet.bounds.height}));outline(pts);const qc=projectLocal2D(face.center.x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,face.center.y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,{width:dodeNet.bounds.width,height:dodeNet.bounds.height});parts.push(`<text x="${qc.x.toFixed(2)}" y="${qc.y.toFixed(2)}" font-size="9" text-anchor="middle" fill="#756b58">F${face.face+1}</text>`)}}
     for(const s of scene){ const color=s.kind==='division'?state.divisionColor:s.color; const stroke=color; const sw=(s.width||1.5)*(s.kind==='thread'?Math.max(.8,threadWidthFor(color)):1); parts.push(`<path d="M ${s.a.x.toFixed(2)} ${s.a.y.toFixed(2)} L ${s.b.x.toFixed(2)} ${s.b.y.toFixed(2)}" fill="none" stroke="${stroke}" stroke-width="${sw.toFixed(2)}" stroke-linecap="round" stroke-opacity="${(s.alpha||1).toFixed(3)}"/>`); }
     parts.push('</svg>');
     const blob=new Blob([parts.join('')],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download=`temari_${state.key}_${state.displayMode}.svg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
@@ -1558,12 +1621,13 @@
   }
   function projectPointOnSegmentPiece(p,s){
     const m=segmentPieceMeta(s);
-    if(!m||m.mode==='sphere'||m.mode==='ico3d'||m.mode==='trunc3d')return projMeta(p);
+    if(!m||m.mode==='sphere'||m.mode==='ico3d'||m.mode==='trunc3d'||m.mode==='dode3d')return projMeta(p);
     if(m.mode==='gore'){
       const g=goreCoordsForIndex(p,m.gore),q=projectLocal2D(g.x,g.y,goreBounds());q.meta={mode:'gore',gore:m.gore,lat:g.y};return q;
     }
     if(m.mode==='icoNet')return projectIcoBoundaryPoint(p,m.face);
     if(m.mode==='truncNet')return projectTruncBoundaryPoint(p,m.face);
+    if(m.mode==='dodeNet')return projectDodeBoundaryPoint(p,m.face);
     if(m.mode==='plane'){
       const ll=cartesianToLatLon(p),bounds=planeBounds();
       let lon=ll.lon,ref=(s.a&&s.b)?((s.a.meta?.lon??lon)+(s.b.meta?.lon??lon))/2:lon;
@@ -1577,7 +1641,7 @@
   }
   function beginPieceClip(s){
     const m=segmentPieceMeta(s);if(!m)return false;
-    if(!(m.mode==='plane'||m.mode==='gore'||m.mode==='icoNet'||m.mode==='truncNet'))return false;
+    if(!(m.mode==='plane'||m.mode==='gore'||m.mode==='icoNet'||m.mode==='truncNet'||m.mode==='dodeNet'))return false;
     ctx.beginPath();
     if(m.mode==='plane'){
       const b=planeBounds(),q0=projectLocal2D(-b.width/2,b.height/2,b),q1=projectLocal2D(b.width/2,-b.height/2,b);ctx.rect(Math.min(q0.x,q1.x),Math.min(q0.y,q1.y),Math.abs(q1.x-q0.x),Math.abs(q1.y-q0.y));
@@ -1592,6 +1656,9 @@
     }else if(m.mode==='truncNet'){
       const b={width:truncNet.bounds.width,height:truncNet.bounds.height},face=truncNet.faces[m.face]; if(!face)return false;
       face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,b);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();
+    }else if(m.mode==='dodeNet'){
+      const b={width:dodeNet.bounds.width,height:dodeNet.bounds.height},face=dodeNet.faces[m.face]; if(!face)return false;
+      face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,pt.y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,b);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();
     }
     ctx.clip();return true;
   }
@@ -1750,7 +1817,7 @@
   function coreVisibility(){const seq=currentPattern().allSteps;if(state.stepIndex===0)return .18+.82*clamp(state.stepProgress,0,1);return seq.length?1:0}
   function drawFlatModeBackdrop(){
     const cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY;
-    let bounds=planeBounds(); if(state.displayMode==='gore') bounds=goreBounds(); else if(state.displayMode==='icoNet') bounds={width:icoNet.bounds.width,height:icoNet.bounds.height}; else if(state.displayMode==='truncNet') bounds={width:truncNet.bounds.width,height:truncNet.bounds.height};
+    let bounds=planeBounds(); if(state.displayMode==='gore') bounds=goreBounds(); else if(state.displayMode==='icoNet') bounds={width:icoNet.bounds.width,height:icoNet.bounds.height}; else if(state.displayMode==='truncNet') bounds={width:truncNet.bounds.width,height:truncNet.bounds.height}; else if(state.displayMode==='dodeNet') bounds={width:dodeNet.bounds.width,height:dodeNet.bounds.height};
     const scale=Math.min((canvas.clientWidth*.88)/(bounds.width||1),(canvas.clientHeight*.78)/(bounds.height||1))*state.zoom, w=bounds.width*scale,h=bounds.height*scale;
     ctx.save();ctx.globalAlpha=.95; ctx.fillStyle=mixHex(state.coreColor,'#ffffff',.22); ctx.fillRect(cx-w/2,cy-h/2,w,h); ctx.strokeStyle='rgba(90,90,90,.16)'; ctx.lineWidth=1; ctx.strokeRect(cx-w/2,cy-h/2,w,h);
     if(state.displayMode==='plane'){
@@ -1768,6 +1835,9 @@
     } else if(state.displayMode==='truncNet'){
       ctx.strokeStyle='rgba(140,120,80,.46)';ctx.lineWidth=1.05;ctx.font='9px Times New Roman';ctx.textAlign='center';ctx.textBaseline='middle';
       for(const face of truncNet.faces){ctx.beginPath();face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,pt.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});const q0=projectLocal2D(face.pts[0].x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.pts[0].y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);ctx.lineTo(q0.x,q0.y);ctx.closePath();ctx.stroke();const qc=projectLocal2D(face.center.x-(truncNet.bounds.minX+truncNet.bounds.maxX)/2,face.center.y-(truncNet.bounds.minY+truncNet.bounds.maxY)/2,bounds);ctx.fillStyle='rgba(100,90,75,.38)';ctx.fillText(`${face.type==='pentagon'?'P'+(face.face+1):'H'+(face.face-11)}`,qc.x,qc.y)}
+    } else if(state.displayMode==='dodeNet'){
+      ctx.strokeStyle='rgba(140,120,80,.46)';ctx.lineWidth=1.05;ctx.font='9px Times New Roman';ctx.textAlign='center';ctx.textBaseline='middle';
+      for(const face of dodeNet.faces){ctx.beginPath();face.pts.forEach((pt,i)=>{const q=projectLocal2D(pt.x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,pt.y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,bounds);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});const q0=projectLocal2D(face.pts[0].x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,face.pts[0].y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,bounds);ctx.lineTo(q0.x,q0.y);ctx.closePath();ctx.stroke();const qc=projectLocal2D(face.center.x-(dodeNet.bounds.minX+dodeNet.bounds.maxX)/2,face.center.y-(dodeNet.bounds.minY+dodeNet.bounds.maxY)/2,bounds);ctx.fillStyle='rgba(100,90,75,.38)';ctx.fillText(`F${face.face+1}`,qc.x,qc.y)}
     }
     ctx.restore();
   }
@@ -1779,11 +1849,16 @@
     const polys=truncFaceData.map(face=>{const pts=face.points.map(p=>projMeta(p)),z=pts.reduce((s,p)=>s+p.z,0)/pts.length;return{pts,z,type:face.type}}).sort((a,b)=>a.z-b.z);
     for(const poly of polys){ctx.save();ctx.globalAlpha=.31*vis;ctx.beginPath();poly.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();const shade=(poly.type==='pentagon'?166:154)+Math.round((poly.z+1)*18);ctx.fillStyle=`rgb(${shade},${shade-7},${shade-17})`;ctx.fill();ctx.strokeStyle='rgba(94,86,74,.38)';ctx.lineWidth=.8;ctx.stroke();ctx.restore()}
   }
+  function drawDode3DBase(vis){
+    const polys=dodeFaceData.map(face=>{const pts=face.points.map(p=>projMeta(p)),z=pts.reduce((s,p)=>s+p.z,0)/pts.length;return{pts,z}}).sort((a,b)=>a.z-b.z);
+    for(const poly of polys){ctx.save();ctx.globalAlpha=.31*vis;ctx.beginPath();poly.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();const shade=160+Math.round((poly.z+1)*19);ctx.fillStyle=`rgb(${shade},${shade-7},${shade-17})`;ctx.fill();ctx.strokeStyle='rgba(94,86,74,.38)';ctx.lineWidth=.8;ctx.stroke();ctx.restore()}
+  }
   function drawCoreSphere(){
     const vis=coreVisibility();if(vis<=.001)return;
-    if(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet'){ drawFlatModeBackdrop(); return; }
+    if(state.displayMode==='plane'||state.displayMode==='gore'||state.displayMode==='icoNet'||state.displayMode==='truncNet'||state.displayMode==='dodeNet'){ drawFlatModeBackdrop(); return; }
     if(state.displayMode==='ico3d'){ drawIco3DBase(vis); return; }
     if(state.displayMode==='trunc3d'){ drawTrunc3DBase(vis); return; }
+    if(state.displayMode==='dode3d'){ drawDode3DBase(vis); return; }
     const d=3.5,base=Math.min(canvas.clientWidth,canvas.clientHeight)*1.55*state.zoom,r=base/Math.sqrt(d*d-1),cx=canvas.clientWidth/2+state.panX,cy=canvas.clientHeight/2+state.panY,rr=r*(.94+.06*vis);
     ctx.save();ctx.globalAlpha=vis;ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.clip();
     if(state.lightOn){
@@ -1831,6 +1906,152 @@
     }
     return out;
   }
+  function isChidoriStep(step){
+    if(!step||step.kind!=='kagari')return false;
+    const tag=String(step.meta&&step.meta.stitch||'').toLowerCase();
+    const txt=((step.title||'')+' '+(step.text||'')).toLowerCase();
+    return tag==='uwagake'||tag==='chidori'||/千鳥|chidori/.test(txt);
+  }
+  function chidoriThreadAngle(step){
+    // 1.0x is treated as roughly a 0.5 mm working thread.  The needle tip
+    // crosses the marking line by HALF the current thread thickness on each
+    // side, so A→B becomes one thread-thickness wide in total.
+    const w=Math.max(.4,threadWidthFor(step.color)),radiusCm=Math.max(.5,state.diameterCm/2);
+    const halfThicknessCm=.025*w;
+    return clamp(halfThicknessCm/radiusCm,.003,.04);
+  }
+  function tangentGuideAt(p){
+    const n=norm(p),axis=V(0,1,0);let g=sub(axis,scale(n,dot(axis,n)));
+    if(len(g)<1e-5)g=tangentBasis(n).v;
+    return norm(g);
+  }
+  function surfaceOffset(p,tangent,angle,r=1.012){
+    const n=norm(p),t=norm(sub(tangent,scale(n,dot(tangent,n))));
+    return scale(norm(add(scale(n,Math.cos(angle)),scale(t,Math.sin(angle)))),r);
+  }
+  function pathAngularLength(points){
+    let a=0;for(let i=0;i<points.length-1;i++)a+=Math.acos(clamp(dot(norm(points[i]),norm(points[i+1])),-1,1));return a;
+  }
+  function concatPts(out,pts){for(let i=0;i<pts.length;i++){if(out.length&&i===0&&len(sub(out[out.length-1],pts[i]))<1e-6)continue;out.push(pts[i]);}return out;}
+  function pointTangentOnPolyline(points,t){
+    if(!points||points.length<2)return{p:points&&points[0]||V(0,1,0),t:V(1,0,0)};
+    const f=clamp(t,0,1)*(points.length-1),i=Math.min(points.length-2,Math.floor(f)),u=f-i,p=lerp(points[i],points[i+1],u);
+    let d=norm(sub(points[i+1],points[i]));
+    if(len(d)<1e-6)d=tangentDirAtPoint(points[Math.max(0,i-1)],points[Math.min(points.length-1,i+1)],p);
+    return{p,t:d};
+  }
+  const NEEDLE_TOTAL_LEN=.48;
+  function chidoriBend(prev,target,next,step){
+    const n=norm(target),guide=tangentGuideAt(target),across=norm(cross(n,guide));
+    const outgoing=tangentDirAtPoint(target,next,target),incoming=tangentDirAtPoint(prev,target,target);
+    let sign=Math.sign(dot(outgoing,across));if(!sign)sign=-Math.sign(dot(incoming,across))||1;
+    const delta=chidoriThreadAngle(step),side=scale(across,sign);
+    // Entry / exit lie half a thread thickness on each side of the marking line.
+    const A=surfaceOffset(target,side,delta,1.012),B=surfaceOffset(target,scale(side,-1),delta,1.012);
+    // For the actual chidori bite the needle is laid down and pushed straight
+    // through the ball from A to the symmetric point B.
+    const insertDir=norm(sub(B,A));
+    const pivotTailStart=add(A,scale(incoming,-NEEDLE_TOTAL_LEN));
+    const approachSurface=scale(norm(pivotTailStart),1.012);
+    const bite=[],N=18,depth=Math.max(.018,delta*1.55);
+    for(let j=0;j<=N;j++){
+      const u=j/N,surf=slerpPoint(A,B,u,1),rr=1.012-depth*Math.sin(Math.PI*u);
+      bite.push(scale(norm(surf),rr));
+    }
+    return{A,B,bite,target:scale(n,1.012),guide,side,incoming,outgoing,insertDir,approachSurface,pivotTailStart,delta};
+  }
+  function appendStraightSegment(out,a,b){
+    if(!a||!b)return out;
+    if(!out.length||len(sub(out[out.length-1],a))>1e-6)out.push(a);
+    if(len(sub(a,b))>1e-6)out.push(b);
+    return out;
+  }
+  function buildChidoriPlan(step){
+    if(!isChidoriStep(step)||!step.ctrlPoints||step.ctrlPoints.length<3)return null;
+    const key=`${threadWidthFor(step.color).toFixed(3)}|${state.diameterCm.toFixed(2)}`;
+    if(step._chidoriPlan&&step._chidoriPlanKey===key)return step._chidoriPlan;
+    const c=step.ctrlPoints,segs=[],all=[];let current=scale(norm(c[0]),1.012);
+    for(let i=1;i<c.length-1;i++){
+      const bend=chidoriBend(c[i-1],c[i],c[i+1],step);
+      bend.prevAnchor=current;
+      bend.surfaceToA=buildArcPath([current,bend.A],22);
+      bend.leadSurface=buildArcPath([bend.approachSurface,bend.A],10);
+      bend.chordLen=len(sub(bend.B,bend.A));
+      bend.translateEntryU=clamp(NEEDLE_TOTAL_LEN/Math.max(1e-6,NEEDLE_TOTAL_LEN+bend.chordLen),.72,.985);
+      const approachSurf=buildArcPath([current,bend.approachSurface],18);
+      segs.push({type:'surface',points:approachSurf,finalPoints:bend.surfaceToA,weight:Math.max(.16,pathAngularLength(approachSurf)),from:current,to:bend.approachSurface,bendIndex:i});
+      concatPts(all,bend.surfaceToA);
+      const biteCombined=[];concatPts(biteCombined,bend.leadSurface);concatPts(biteCombined,bend.bite);
+      const biteWeight=Math.max(.34,bend.delta*16.0);
+      segs.push({type:'bite',points:biteCombined,leadSurface:bend.leadSurface,bite:bend.bite,weight:biteWeight,bend,bendIndex:i});
+      concatPts(all,bend.bite);
+      current=bend.B;
+    }
+    const last=scale(norm(c[c.length-1]),1.012),surf=buildArcPath([current,last],18);
+    segs.push({type:'surface',points:surf,finalPoints:surf,weight:Math.max(.16,pathAngularLength(surf)),from:current,to:last,bendIndex:c.length-1});concatPts(all,surf);
+    const totalWeight=segs.reduce((s,x)=>s+x.weight,0)||1;
+    const plan={segments:segs,points:all,totalWeight};step._chidoriPlan=plan;step._chidoriPlanKey=key;return plan;
+  }
+  function renderPointsForStep(step){const p=buildChidoriPlan(step);return p?p.points:step.points;}
+  function computeChidoriAnimation(step,progress){
+    const plan=buildChidoriPlan(step);if(!plan)return null;
+    let remain=clamp(progress,0,1)*plan.totalWeight,idx=0;
+    for(;idx<plan.segments.length-1;idx++){if(remain<=plan.segments[idx].weight)break;remain-=plan.segments[idx].weight;}
+    const seg=plan.segments[idx],local=clamp(remain/Math.max(1e-6,seg.weight),0,1),points=[];
+    for(let i=0;i<idx;i++){
+      const s=plan.segments[i];
+      if(seg.type==='bite'&&i===idx-1&&s.type==='surface'&&s.bendIndex===seg.bendIndex)continue;
+      if(s.type==='surface') concatPts(points,s.finalPoints||s.points);
+      else concatPts(points,s.points);
+    }
+    let tail,dir,flatDir,tip=null,mode='move';
+    if(seg.type==='surface'){
+      const part=partialPoints(seg.points,local);concatPts(points,part);const fr=pointTangentOnPolyline(seg.points,local);tail=fr.p;dir=fr.t;flatDir=dir;mode='surface-move';
+    }else{
+      const b=seg.bend;
+      const nextSeg=plan.segments[Math.min(plan.segments.length-1,idx+1)];
+      const incoming=norm(b.incoming),insertDir=norm(b.insertDir),outgoing=nextSeg&&nextSeg.type==='surface'?pointTangentOnPolyline(nextSeg.points,0).t:norm(b.outgoing);
+      const pivotEnd=.22,translateEnd=.90;
+      if(local<pivotEnd){
+        const u=smoothstep01(local/pivotEnd);
+        tip=b.A;
+        dir=slerpVec(incoming,insertDir,u);
+        tail=add(tip,scale(dir,-NEEDLE_TOTAL_LEN));
+        flatDir=dir;
+        appendStraightSegment(points,b.prevAnchor,tail);
+        mode='chidori-tip-pivot';
+      }else if(local<translateEnd){
+        const u=smoothstep01((local-pivotEnd)/(translateEnd-pivotEnd));
+        const travel=NEEDLE_TOTAL_LEN+b.chordLen;
+        dir=insertDir;
+        tail=add(b.A,scale(dir,-NEEDLE_TOTAL_LEN+travel*u));
+        tip=add(b.A,scale(dir,travel*u));
+        flatDir=dir;
+        const entryU=b.translateEntryU;
+        if(u<entryU){
+          const lay=clamp(u/Math.max(1e-6,entryU),0,1);
+          const laid=partialPoints(b.surfaceToA,lay);
+          concatPts(points,laid);
+          const anchor=points.length?points[points.length-1]:b.prevAnchor;
+          appendStraightSegment(points,anchor,tail);
+        }else{
+          concatPts(points,b.surfaceToA);
+          const biteU=clamp((u-entryU)/Math.max(1e-6,1-entryU),0,1);
+          const laidBite=partialPoints(b.bite,biteU);
+          concatPts(points,laidBite);
+          const anchor=points.length?points[points.length-1]:b.A;
+          appendStraightSegment(points,anchor,tail);
+        }
+        mode='chidori-translate';
+      }else{
+        concatPts(points,b.surfaceToA);concatPts(points,b.bite);
+        const u=smoothstep01((local-translateEnd)/(1-translateEnd));
+        tail=b.B;dir=slerpVec(insertDir,outgoing,u);tip=add(tail,scale(dir,NEEDLE_TOTAL_LEN));flatDir=dir;mode='chidori-pivot-out';
+      }
+    }
+    return{chidori:true,plan,segment:seg,segmentIndex:idx,segmentLocal:local,points,tail,tip,dir:norm(dir),flatDir:norm(flatDir||dir),mode,pathProgress:progress};
+  }
+
   function needleMotionSpec(step){
     const hasCtrl=!!(step&&step.ctrlPoints&&step.ctrlPoints.length>=2);
     return hasCtrl?{move:.72,pivotIn:.12,pivotThrough:.08,pivotOut:.08}:{move:1,pivotIn:0,pivotThrough:0,pivotOut:0};
@@ -1877,6 +2098,9 @@
     };
   }
   function computeDisplayedThread(step,progress){
+    if(isChidoriStep(step)){
+      const anim=computeChidoriAnimation(step,progress);return{points:anim?anim.points:[],motion:anim||{pathProgress:progress}};
+    }
     const anim=computeAnimatedStepState(step,progress);
     const pts=partialPoints(step.points,anim.pathProgress);
     return{points:pts,motion:anim};
@@ -1884,15 +2108,19 @@
   function makeNeedleModel(step,progress){
     if(!state.showNeedle||!step||step.kind==='core'||!step.points||step.points.length<2)return null;
     const relation=inferStitchRelation(step);
-    const anim=computeAnimatedStepState(step,progress);
+    const chidoriAnim=isChidoriStep(step)?computeChidoriAnimation(step,progress):null;
+    const anim=chidoriAnim||computeAnimatedStepState(step,progress);
     let tail,dir,contact,threadResume='surface',flatDisplayDir=null;
     // Needle geometry: cone height : base diameter = 50 : 1.
     // The rounded rear pole of the hemisphere is the actual thread-attachment point.
-    const totalLen=.48;
+    const totalLen=NEEDLE_TOTAL_LEN;
     const coneHeight=totalLen/(1+1/100);
     const baseRadius=coneHeight/100;
     const surfaceR=1.014;
-    if(anim.anchors){
+    if(chidoriAnim){
+      tail=chidoriAnim.tail||scale(norm(step.ctrlPoints[0]),surfaceR);dir=chidoriAnim.dir||tangentDirAtPoint(step.ctrlPoints[0],step.ctrlPoints[1],tail);flatDisplayDir=chidoriAnim.flatDir||dir;contact=tail;
+      threadResume=(chidoriAnim.mode==='chidori-tip-pierce'||chidoriAnim.mode==='chidori-pull-through')?'through-core':(chidoriAnim.mode.indexOf('pivot')>=0?'hold':'surface');
+    }else if(anim.anchors){
       const prevDir=tangentDirAtPoint(anim.from,anim.to,anim.to);
       const nextDir=anim.next?tangentDirAtPoint(anim.to,anim.next,anim.to):prevDir;
       const inward=norm(add(scale(norm(anim.to),-1),scale(nextDir,.14)));
@@ -2278,14 +2506,14 @@
     ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
     let segs=[];const seq=sequence();
     // Completed construction steps.
-    for(const s of finished){if(s.kind==='division'){if(state.showGuides)segs.push(...polySegments(s.points,state.divisionColor,1.55,1,1,null,'division'))}else if(s.kind==='kagari'){segs.push(...polySegments(s.points,s.color,2.7,1,1,null,'thread'))}}
+    for(const s of finished){if(s.kind==='division'){if(state.showGuides)segs.push(...polySegments(s.points,state.divisionColor,1.55,1,1,null,'division'))}else if(s.kind==='kagari'){segs.push(...polySegments(renderPointsForStep(s),s.color,2.7,1,1,null,'thread'))}}
     // Optional preview is limited to the future kagari, not the division construction.
-    if(state.ghost){for(let i=state.stepIndex;i<seq.length;i+=Math.max(1,Math.floor(seq.length/90))){const s=seq[i];if(s.kind==='kagari')segs.push(...polySegments(s.points,s.color,.8,.07,.07,[2,4],'ghost'))}}
+    if(state.ghost){for(let i=state.stepIndex;i<seq.length;i+=Math.max(1,Math.floor(seq.length/90))){const s=seq[i];if(s.kind==='kagari')segs.push(...polySegments(renderPointsForStep(s),s.color,.8,.07,.07,[2,4],'ghost'))}}
     let currentPts=null,currentStep=null,currentMotion=null;
     if(state.stepIndex<seq.length)currentStep=seq[state.stepIndex];
     const needleModel=makeNeedleModel(currentStep,state.stepProgress);updateNeedleStatus(currentStep);
     if(currentStep&&currentStep.kind!=='core'){
-      const disp=computeDisplayedThread(currentStep,state.stepProgress);currentMotion=disp.motion;currentPts=applyStitchDepth(disp.points,currentStep,currentMotion.pathProgress);
+      const disp=computeDisplayedThread(currentStep,state.stepProgress);currentMotion=disp.motion;currentPts=(currentMotion&&currentMotion.chidori)?disp.points:applyStitchDepth(disp.points,currentStep,currentMotion.pathProgress);
       // The animated thread endpoint is exactly the rounded rear pole of the needle.
       // This also keeps the thread attached while the needle pivots or temporarily enters the core.
       if(needleModel&&currentPts&&currentPts.length)currentPts[currentPts.length-1]=V(needleModel.tail.x,needleModel.tail.y,needleModel.tail.z);
@@ -2295,12 +2523,12 @@
     // Back-side/submerged thread and the complete needle are painted first; the opaque core masks the hidden portion.
     // Then only the front/outside portion of the same rigid needle is repainted above the core.
     const horizon=.285;
-    if(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'){
+    if(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'||state.displayMode==='dode3d'){
       const back=segs.filter(x=>x.z<horizon||x.r<1.0005),front=segs.filter(x=>x.z>=horizon&&x.r>=1.0005);drawSegments(back);if(needleModel)drawNeedleSolid(needleModel,false);drawCoreSphere();if(needleModel)drawNeedleShadow(needleModel);drawSegments(front);if(needleModel)drawNeedleSolid(needleModel,true)
     }else{
       drawCoreSphere(); drawSegments(segs); if(needleModel)drawNeedleFlat(needleModel)
     }
-    if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if((!(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d')||q.z>=.285)&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
+    if(currentStep&&currentStep.kind!=='core'){drawLabels(currentStep.labels);if(!state.showNeedle&&currentPts&&currentPts.length){const q=proj(currentPts[currentPts.length-1]);if((!(state.displayMode==='sphere'||state.displayMode==='ico3d'||state.displayMode==='trunc3d'||state.displayMode==='dode3d')||q.z>=.285)&&len(currentPts[currentPts.length-1])>=1.0005){ctx.beginPath();ctx.arc(q.x,q.y,5.2,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.strokeStyle=currentStep.kind==='division'?state.divisionColor:'#555555';ctx.lineWidth=1;ctx.fill();ctx.stroke()}}}
     requestAnimationFrame(frame);
   }
   threadColorMode.value=state.threadColor;threadRenderMode.value=state.threadRender;realisticMaterialMode.value=state.realisticMaterial;threadWidthRange.value=String(state.threadWidth);diameterCm.value=state.diameterCm.toFixed(1);threadWidthValue.textContent=state.threadWidth.toFixed(1)+'×';speedRange.value=String(state.speed);speedValue.textContent=state.speed.toFixed(2)+'x';lightToggle.checked=state.lightOn;coreColor.value=state.coreColor;divisionColor.value=state.divisionColor;threadBaseColor.value=state.threadBaseColor;coreColorValue.textContent=state.coreColor.toUpperCase();divisionColorValue.textContent=state.divisionColor.toUpperCase();threadBaseColorValue.textContent=state.threadBaseColor.toUpperCase();displayModeSelect.value=state.displayMode;
